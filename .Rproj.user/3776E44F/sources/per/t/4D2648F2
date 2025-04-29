@@ -1,0 +1,27 @@
+{
+    "id": "4D2648F2",
+    "path": "~/Desktop/WGYP/Data Science/R Modules/Module_1_DataPreparationEDA/DataPreparationEDA.Rmd",
+    "project_path": null,
+    "type": "r_markdown",
+    "hash": "2921541689",
+    "contents": "",
+    "dirty": false,
+    "created": 1725811500279.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "chunk_output_type": "inline",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "76,12",
+        "scrollLine": "68"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1721049048,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1721049048,
+    "read_only": false,
+    "read_only_alternatives": []
+}

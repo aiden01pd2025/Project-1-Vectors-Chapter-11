@@ -1,0 +1,5 @@
+# This file is used internally by FFMPEG.
+file 'file:/Users/aidengu/Desktop/Grade 12/Multivariable Calculus/Project 1 – Vectors – Chapter 11/media/videos/scene/480p15/partial_movie_files/Part2c_4D/168742219_2626362316_2711095027.mp4'
+file 'file:/Users/aidengu/Desktop/Grade 12/Multivariable Calculus/Project 1 – Vectors – Chapter 11/media/videos/scene/480p15/partial_movie_files/Part2c_4D/1036170041_2908531083_3458858020.mp4'
+file 'file:/Users/aidengu/Desktop/Grade 12/Multivariable Calculus/Project 1 – Vectors – Chapter 11/media/videos/scene/480p15/partial_movie_files/Part2c_4D/1036170041_2291795737_3641261261.mp4'
+file 'file:/Users/aidengu/Desktop/Grade 12/Multivariable Calculus/Project 1 – Vectors – Chapter 11/media/videos/scene/480p15/partial_movie_files/Part2c_4D/1036170041_4205520711_1875844846.mp4'

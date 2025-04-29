@@ -1,0 +1,1682 @@
+---
+title: "Multiple Regression"
+output:
+  html_document:
+    code_folding: show
+    highlight: haddock
+    number_sections: yes
+    theme: lumen
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  pdf_document:
+    extra_dependencies: ["dcolumn"]
+    number_sections: yes
+    toc: yes
+    toc_depth: '4'
+  word_document:
+    toc: yes
+    toc_depth: '4'
+urlcolor: blue
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width=8, fig.height=4)
+# get the output format for stargazer only:
+# results = `asis`
+# stargazer( type = ) one of the following:
+## if run in studio, set as "text"
+## if knit to PDF, set as "latex"
+## if knit to HTML, set as "html"
+# We made it automatic:
+output_format <- ifelse(is.null(knitr::opts_knit$get("rmarkdown.pandoc.to")),
+                        "text", knitr::opts_knit$get("rmarkdown.pandoc.to"))
+
+options(scipen = 0, digits = 3)  # controls base R output
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(dplyr, ggplot2, gridExtra, ggrepel, leaps, car, tidyverse, contrast, sandwich, stargazer, sf, mapview)
+# car::Anova(): report F statistics
+# leaps::regsubsets(): model selection
+# tidyverse is a package of packages: ggplot2, dplyr, readr...
+# sandwich::coeftest(fm, df = Inf, vcov = vcovHC)
+# sf for spatial data: simple features
+# mapview for plotting map
+```
+
+\pagebreak
+
+
+# Objectives {-}
+
+Data Science is more than just a discipline; it's a toolkit for extracting value and insights from diverse datasets. A foundational step in this process is understanding the data at hand. In this module, we start with exploratory data analysis to comprehend the nature of our dataset, gauging potential relationships between variables. 
+
+The realm of data mining has seen exponential growth over the past two decades, introducing a plethora of tools and methodologies. Among them, linear models stand out as both foundational and profoundly powerful. Using housing prices as a case study offers a tangible context given its macro and microeconomics significance. Students benefit from this approach, learning to discern intricate variable interactions—a skill transferable to many business/application scenarios. Through this module, participants will not only be introduced to (or review) linear models but also delve deep into understanding the essence of what is being modeled. The objective is threefold: to apply the data effectively, to extract meaningful information, and to appreciate the inherent variability intrinsic to statistics.
+
+
+
+
+
+Suggested reading:
+
+* This lecture in details
+* Stat Sleuth: Ch 7- 11 Multiple Reg, Ch 5: One Way ANOVA (in details)
+* Note: Many important topics are in Appendices. 
+* Data needed: 
+    - `chicago_housing_2019.csv`: Chicago house sales in 2019
+    - `Chicago_CensusTracts2010`: shapefile folder
+    - a small data set `sales` is created and used for regression
+
+**Table of contents:**
+
+1. Elements to multiple regression
+      - Model specification
+      - General linear models
+      - LS estimates and their properties
+      - Inference
+      
+          * for the coefficients
+          * for the mean response
+          * for a future response
+      
+2. Categorical predictors
+      - Adding categorical predictors to the multiple regression (ANOVA)
+      - Model with both continuous and categorical variables (ANCOVA)
+      - Models with or without interactions
+      
+3. More about multiple Regression
+      - Sandwich standard error estimates to handle heteroscedasticity vs. homoscedasticity
+      - Modeling non-linear relationships
+      - Transformation of variables to meet linear model assumptions 
+      - Outliers, Leverage points
+      
+4. Summary
+
+5. Appendices
+
+6. R functions 
+    + `lm()`
+    + `anova()`
+    + `car::Anova()`
+    + `sandwich()`, lmtest::coeftest: sandwich cov estimators 
+    + `stargazer()` (showing multiple regressions)
+    
+\pagebreak
+
+# Case Study: House Price in Chicago
+
+Real estate decisions, whether for investment or personal use, are often accompanied by numerous questions. How does one determine an appropriate price when buying or listing a property? Does finishing a basement or adding a porch significantly increase the home's value? Regression provides essential answers to such queries. Multiple regression, an evolved form of simple regression, delves into the relationships between one response variable and several predictor variables. This lecture aims to elucidate these regression techniques. **The crux lies in understanding the influence of each predictor on the response, especially in the context of other variables present in the model.** Our methodology seamlessly merges the principles of multiple regression and ANOVA.
+
+Situated as the third-largest metropolitan area in the U.S., Chicago has consistently been a vibrant real estate hub. Yet, its housing market strikes a balance, offering affordability compared to other major American cities. This case study hones in on Chicago house sales data from 2019.
+
+**Study Objective:** How can one accurately determine the value of a property?
+
+- Understand the influence of various features on a property's price.
+- With a defined set of features, our goals are to:
+    * Ascertain the average house price (confidence intervals).
+    * Predict the potential price of a specific property (prediction intervals).
+- Delve into the nuances of how a property's location can sway its market value.
+
+
+
+
+**The Dataset:** One of the most captivating facets of our study is the dataset itself.   Hailing from the [Cook County Assessor](https://gitlab.com/groups/ccao-data-science---modeling/-/wikis/SOPs/Open%20Data), where they have compiled and integrated collection of information, meticulously gathered from a variety of distinct sources to offer  an extensive array of individual housing attributes. Beyond the mere physical aspects, this dataset uniquely incorporates social dimensions through spatial information or proximity variables as well as demographic variables by census tract, amongst other fascinating properties. For a comprehensive data breakdown, please refer to `Data_dictionary.html`. The features within are categorized under prefixes such as ACS5 (American community survey data, acs5), Characteristic (char), Location (loc), Meta (meta), Proximity (prox), and Time (time). To ensure an undiluted focus, we will momentarily sidestep the EDA for each variable.  It's imperative to note the nature of specific variables like Type of resident (`char_type_resd`) and neighborhood, finish (`char_bsmt_fin`). Recognized as categorical variables, their treatment in analyses diverges, as will be elucidated in the Section's discussion on Categorical Predictors.
+
+
+
+
+# Exploratory Data Analysis (EDA) 
+
+Before diving deep into formal regression methodologies, it's pivotal to augment our traditional regression analyses with an immersive spatial visualization. Such visual representation offers a more intuitive grasp of the data, revealing patterns and relationships that may not be immediately evident in numerical datasets. While the underlying R code may seem intricate, the emphasis for students should firmly rest on understanding the outcomes and implications these visualizations bring to light. After all, a clear comprehension of the data's story is crucial, even before we begin to craft our regression narratives.
+
+
+Let's first read in the house sales data in 2019.
+
+```{r}
+# install.packages('sf')   # has been done in our first R-chunk
+# library(sf)  # done by running p_load(sf)
+# browseVignettes('sf') #  details about the package sf
+
+# Single family house sales in 2019
+sfh <- read.csv("data/chicago_housing_2019.csv")
+# names(sfh)
+# View(sfh[1:2,])
+dim(sfh)
+# str(sfh)
+```
+
+
+
+
+## Location, Location, Location: Median House Price Heatmap 
+
+When we talk about visualizing the median price of houses by areas like census tracts, we're venturing into the realm of spatial data. So, what's the key to unlocking these visual wonders? It's something called a 'shapefile'. Think of a shapefile like a map's blueprint; it's a special file that lays out the borders or boundaries for each census area. And if you're curious, you'd often find these files ending in ".shp".
+
+For our Chicago housing study, we need the shapefile that sketches out Chicago's census areas. Thankfully, these can be easily found on many government websites.
+
+Now, how do we work with this in R? Enter the `sf` package, short for 'Simple Features'. As straightforward as it sounds, this package helps us visualize and work with these shapefiles, letting us see data as points or shapes on a map. With `sf`, we can do much more than just look. Imagine wanting to find all houses within a mile of a particular spot; `sf` makes tasks like that a breeze.
+
+When diving into the `sf` world, you'll often see functions starting with `st_` (spatial type). These are our tools for handling spatial data. For instance, `st_read()` is how we pull a shapefile into R. And, a small but critical detail, whenever we work with maps, we need a reference system to ensure everything lines up correctly. In our case, we'll use one named [`WGS84`](https://en.wikipedia.org/wiki/World_Geodetic_System#WGS84) (with the crs code 4326), which is what platforms like Google Maps rely on.
+
+
+
+
+```{r}
+# Chicago shapefile by census tract (map)
+tract <- st_read("data/Chicago_CensusTracts2010/CensusTractsTIGER2010.shp") %>% st_transform(crs = 4326)
+# names(tract) 
+```
+
+An `sf` object, at its core, is a data frame that comes with a special twist: a geometry column. This column is the heart of the object, storing the spatial characteristics of the features we are analyzing. In the context of our Chicago census tract shapefile, this geometry column is filled with polygons, as each individual tract can be aptly represented in this form.
+
+Accompanying these geometric representations are several important attributes — the state code (IL), county name (Cook County), tract ID, GEOID, and community area (the loop, river north, Lincoln park, Hyde park, etc.). We center our analysis on census tracts as our unit of observation because of the homogeneous socioeconomic characteristics within each tract. In Chicago, there are approximately 800 such tracts, each serving as a rich source of data for our exploration.  [Here](https://www.lib.uchicago.edu/e/collections/maps/censusinfo.html) is more information on census data for Chicago (e.g., census tract, community areas). 
+
+To bring this data to life visually, plotting an sf object is remarkably straightforward. Simply use the `plot()` function, specifying which column you would like to use as the basis for coloring the features. The following color census tract by community areas.
+
+```{r}
+plot(tract["COMMAREA"])
+```
+
+Beyond static visualizations, R offers dynamic alternatives for exploring spatial data interactively. One such option is the `mapview` package, which brings your maps to life with various interactive features. In the `mapview()` function, the `zcol` argument plays a crucial role—it determines which column of your data will be used to control the color scheme of the map. 
+
+```{r eval=knitr::is_html_output()}
+mapview(tract, zcol = "COMMAREA")
+```
+
+Finally, we plot the median house price by census tract. 
+To achieve this, we start by calculating the median house price for each census tract. Once we have these median values, we merge this data with the census tract shapefile on the `census tract GEOID`.
+
+```{r eval=knitr::is_html_output()}
+## calculate median price by tract
+sfh_med <- sfh %>% 
+  group_by(loc_census_tract_geoid) %>% 
+  summarise(median_price = median(meta_sale_price),
+            log_median_price = log(median(meta_sale_price)))
+## merge with the shapefile on census tract GEOID
+sfh_med <- merge(sfh_med, tract, by.x="loc_census_tract_geoid", by.y = "GEOID10")
+## transform data.frame into sf object
+sfh_med_sf <- st_as_sf(sfh_med)
+## plot using mapview()
+# mapview(sfh_med_sf, zcol = "median_price")
+mapview(sfh_med_sf, zcol = "log_median_price")
+```
+
+As we see, the median house price in Chicago tends to be higher in the northern areas and in neighborhoods closer to the lake. This observation underscores the pivotal role that location plays in the real estate market. It is a vivid reminder that ‘location, location, location’ is more than a saying-—it is a fundamental principle that significantly influences property values.
+
+## Seasonality
+
+Much like the changing seasons, the real estate market often exhibits its own cyclical patterns. It is well-documented that house sales tend to ebb and flow throughout the months of the year, reflecting a distinct seasonality. Does this rhythmic pattern extend beyond the volume of sales to influence the actual sales price as well?
+
+
+```{r}
+sfh %>% group_by(month = as.factor(time_sale_month_of_year)) %>%
+  summarise(volume = n()) %>%
+	ggplot(aes(x = month, y  = volume)) + 
+	geom_line(group = 1) + 
+  theme_bw()
+```
+
+The rhythm of real estate is in tune with the calendar. Sales volume typically crescendos from May to July, just before the new school year commences, marking this period as a peak time for families to relocate. Contrastingly, the market tends to cool alongside the weather, reaching its lowest ebb in January and February, the coldest months of the year. However, much like the arrival of spring, the market begins to rebound as the temperatures rise.
+
+
+```{r}
+sfh %>% group_by(month = as.factor(time_sale_month_of_year)) %>%
+  summarise(median_price = median(meta_sale_price)) %>%
+	ggplot(aes(x = month, y  = median_price)) + 
+	geom_line(group = 1, col = 'blue') + 
+  theme_bw()
+```
+
+When it comes to median sales price, the pattern echoes that of the volume: June and July stand out as months where properties command the highest median prices. These trends underscore the profound connection between the seasonal cycle and the dynamics of the housing market.
+
+
+## The story of three neighborhoods: Lincoln Park, Hypde Park, Near West Side
+
+To demonstrate our point we will zoom in on three distinct community areas within Chicago, each with its own unique story: Lincoln Park, an affluent neighborhood situated to the north of the Loop (downtown), known for its scenic parks and upscale residences; Hyde Park, a historic area to the south of the Loop, home to the University of Chicago and the early stomping grounds of President Obama; Near West Side, a burgeoning area just west of the Loop, where rapid development is infusing the community with a new and exciting energy. These neighborhoods, each with its own character and charm, serve as prime examples of how location significantly affects the property value.
+
+In the following chucks we select a subset **sales** including the three neighborhoods and a few variables. We also made `log_price`, changed units for some variables. Renamed variables for convenience. 
+
+
+Most of the remaining analyses will be done with this subset **sales**
+
+(You may jump to the next subsection `A small data set **sales** to get information for this subset. )
+ 
+
+```{r results=TRUE}
+comm <- c("LINCOLN PARK", "HYDE PARK", "NEAR WEST SIDE") #dim(sfh)
+sales <- sfh %>% filter(loc_chicago_community_area_name %in% comm) %>%
+  mutate(log_price = log(meta_sale_price), # transform the price to log scale
+         bldg_1ksf = char_bldg_sf / 1e3) %>% # change the unit of bldg size to 1k sf
+  select(log_price, bldg_1ksf, char_land_sf:char_type_resd,  char_bsmt_fin, # select a few more variables
+         prox_lake_michigan_dist_ft, prox_nearest_cta_stop_dist_ft, other_school_district_secondary_avg_rating,
+         loc_census_tract_geoid, loc_chicago_community_area_name, loc_longitude, loc_latitude,
+         time_sale_month_of_year) %>%
+  tidyr::drop_na()
+
+# names(sales)
+dim(sales)   # 506 houses
+# str(sales)
+# head(sales) 
+# View(sales)
+```
+
+We rename the variables for convenience.
+
+```{r final chuck sale, results='markup'}
+# replace char_, loc_, prox_, other_
+sales <- rename_with(sales, ~ gsub("char_", "", .x, fixed = TRUE))
+sales <- rename_with(sales, ~ gsub("loc_", "", .x, fixed = TRUE))
+sales <- rename_with(sales, ~ gsub("prox_", "", .x, fixed = TRUE))
+sales <- rename_with(sales, ~ gsub("other_", "", .x, fixed = TRUE))
+# rename chicago_community_area_name with neighborhood
+sales <- rename(sales, neighborhood = "chicago_community_area_name")
+#names(sales)
+```
+
+
+Let's look at all the houses we included in the data in a map. By leveraging the longitude and latitude coordinates, we can precisely pinpoint the exact location of each house.
+
+```{r eval=knitr::is_html_output()} 
+## covert sales df into sf using "longitude", "latitude" as coordinates
+sales_sf <- st_as_sf(sales, coords = c("longitude", "latitude"), crs = 4326)
+
+## 'zcol' argument specifies that the 'log_price' column will be used to determine the color
+mapview(sales_sf, zcol = "log_price")
+```
+
+Finally let us write this small data `sales` out so that one can use it without the data preparation section above.
+
+```{r}
+write.csv( sales, "data/sales.csv", row.names = FALSE)
+```
+
+
+## A small data set `sales`
+
+Let first read in a small data set `sales.csv`. 
+
+```{r}
+sales <- read.csv("data/sales.csv")
+names(sales)
+```
+
+
+Below is a quick description of the features in our dataset (excluding the location information) that we will use for this module.
+
+
+|Feature|Description|
+|--------------|----------------------------------|
+|log_price| Log sale price |
+|bsmt_fin| finish: 1: Formal Rec Room, 2: Apartment, 3: Unfinished|
+|beds|Bedrooms: Number of bedrooms in the building |
+|bldg_1ksf| Building square feet (thousand square feet) |
+|fbath|Full Baths: Number of full bathrooms, defined as having a bath or shower. If this value is missing, the default value is set to 1. |
+|hbath|Half baths: Number of half baths, defined as bathrooms without a shower or bathtub. |
+|land_sf| Lot/land square feet|
+|rooms|Rooms: Number of total rooms in the building (excluding baths). Not to be confused with bedrooms. |
+|type_resd| Type of resident: 1: 1 Story, 2: 2 Story, 3: 3 Story +, 4: Split Level, 5: 1.5 Story|
+|lake_michigan_dist_ft | Distance in feet to the Lake Michigan coastline.|
+|nearest_cta_stop_dist_ft| Distance in feet to the nearest CTA (subway) stop. |
+|census_tract_geoid| Census tract GEOID by the Census Bureau. |
+|neighborhood| Community area. |
+|longitude| Longitude of the property. |
+|latitude| Latitude of  the property.|
+|time_sale_month_of_year| Month of the year of the sales.
+
+
+Once we know the data structure we will rephrase our goal of study.  Specifically, 
+
+1. Response: $Y$ = `log_price` (base e)
+2. Predictors: features of the house and location
+3. 
+    * Estimate the **mean** `log_price` for all such properties specified below and
+    * Predict `log_price` for a particular property described below
+4. Are houses in one neighborhood (`neighborhood`) more valuable than others? 
+5. In particular, we would like to investigate the `log_price` for this **newly built** property:
+
+
+|Feature|Value|
+|----------|----------------------------------------------|
+|bldg_1ksf|3|
+|land_sf|5000|
+|beds|4|
+|rooms|8|
+|fbath|4|
+|hbath|3|
+|basement|Full|
+|type|2 Story|
+|neighborhood | LINCOLN PARK |
+|lake_michigan_dist_ft | 5000 |
+|nearest_cta_stop_dist_ft | 2000 |
+|time_sale_month_of_year | 7 |
+|school_district_secondary_avg_rating | 6 |
+|census_tract_geoid | 17031071200 |
+
+
+
+We create a new house for prediction as follows.
+
+```{r results=TRUE}
+newhouse <- data.frame(meta_sale_price = NA,
+                     bldg_1ksf = 3, 
+                     land_sf = 5000,
+                     beds = 4,
+                     rooms = 8,
+                     fbath = 4,
+                     hbath = 3, 
+                     frpl = 2,
+                     type = "2 Story",
+                     basement = "Full", 
+                     neighborhood = "LINCOLN PARK",
+                     lake_michigan_dist_ft = 5000,
+                     nearest_cta_stop_dist_ft = 2000,
+                     time_sale_month_of_year = 7,
+                     school_district_secondary_avg_rating = 6,
+                     census_tract_geoid = "17031071200"
+                     )
+newhouse
+```
+Before we do any analysis take a look at the data:
+
+```{r}
+summary(sales)
+```
+
+What are the price range in this group? Sizes? Anything you find interesting or 
+peculiar? (Pretty expensive neighborhood for sure.)
+
+
+\pagebreak
+
+
+
+# Introduction to Multiple Regression 
+
+In this module, we'll unpack the foundational concepts of multiple regression:
+
+* The structure or **Models** we use,
+* The method known as **Ordinary Least Squares (OLS)**,
+* And the inherent **Properties of OLS**.
+
+These terms and the following subsections might come off as somewhat theoretical at first glance. To aid clarity, we'll intersperse these discussions with practical examples using the `lm()` function in R. By associating tangible numbers with these abstract ideas, our aim is to enhance comprehension. 
+
+As we progress, keep an eye out for the variable `bldg_1ksf`. It's a prime example of how regression coefficients can vary based on what other variables are in the mix.
+
+
+## Model Specification
+
+How does `bldg_1ksf` affect `log_price`? 
+
+It depends on how we model the response. We will investigate **three models** with `bldg_1ksf`.
+
+For the ease of presentation, we define some predictors below that we will use in subsequent models:
+
+$$x_1 = bldg\_1ksf, \quad x_2 = land\_sf, \quad x_3 = beds, \quad x_4 = rooms, \quad x_5 = fbath, \quad x_6 = hbath$$
+
+We will create three models:
+
+**M1.** Our first model will only contain one predictor, `bldg_1ksf`:
+
+
+$$y_i = \beta_0 + \beta_1 \cdot x_{i1} + \epsilon$$ 
+
+- **Interpretation of $\beta_1$** is that in general, the mean $y$ will change by $\beta_1$ if a house is 1k square feet larger. So we can't really peel off the effect of the `bldg_1ksf` over $y$. 
+
+
+**M2.** Next, we add the predictor `land_sf` to our model:
+  
+$$y_i = \beta_0 + \beta_1 \cdot x_{i1} + \beta_2 \cdot x_{i2} + \epsilon$$
+
+- **Interpretation of $\beta_1$** is that in general, the mean $y$ will change by $\beta_1$ if a house is 1k square feet larger and the `land_sf`'s are the same. 
+
+
+
+**M3.** Finally, we fit a model with multiple predictors:
+
+$$y_i = \beta_0 + \beta_1 x_{i1} + \beta_2x_{i2} + \beta_3x_{i3} + \beta_4x_{i4} + \beta_5x_{i5} + \beta_6x_{i6} + \epsilon$$
+
+- **Interpretation of $\beta_1$** is that in general, the mean $y$ will change by $\beta_1$ if a house is 1k square feet larger and the rest of the features are the same.  
+
+
+**Important remarks:**
+
+* **Question 1**: Are all the $\beta_1$'s same in the 3 models above? 
+
+    - **No**. The effect of `bldg_1ksf` $\beta_1$ depends on the rest of the features in the model!!!! 
+
+* **Question 2**: What is the interpretation of $\beta_1$ for the sale price (instead of `y = log_price`)?
+
+    - If a house is 1k square feet larger with the rest of the features being the same, the sale price increases by about $(e^{\beta_1}-1)\times 100$%.
+
+
+
+## General multiple linear models
+
+In general, we define a multiple regression as
+
+$$Y = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \dots + \beta_p x_{ip} + \epsilon_i$$
+
+* Linearity Assumption for this model is 
+
+$$\textbf{E}(y_i | x_i) = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \dots + \beta_p x_{ip} $$
+
+* The homoscedasticity assumption is
+
+$$\textbf{Var}(y_i | x_{i1}, x_{i2}, \dots, x_{ip}) = \sigma^2$$
+
+* The Error term is iid. and defined as
+
+$$\epsilon_i \overset{iid}{\sim} N(0, \sigma^2)$$
+This is same to say the errors are independent and with a normal distribution of mean $0$ and an equal variance $\sigma^2$.
+
+
+* Parameters of interests are all the $\beta's$ and $\sigma^2$.
+
+- Simple interpretations of each $\beta_i's$
+- Simple models for predictions
+
+
+
+## OLS and its Properties
+
+These $\beta$ parameters are estimated using the same approach as simple regression, specifically by minimizing the sum of squared residuals ($RSS$): 
+
+$$\min_{b_0,\,b_1,\,b_{2},\dots,b_{p}} \sum_{i=1}^{n} (y_i - b_0 - b_1 x_{i1} - b_2 x_{i2} - \dots - b_p x_{ip})^{2}$$
+
+To be specific, we define let $X$ denote a $n × (p+1)$ matrix whose $(i,j)$th element is $x_{ij}$. That is:
+
+$$X=
+ \begin{pmatrix}
+ 1&  x_{11} & x_{12} & \dots & x_{1p} \\
+ 1&  x_{21} & x_{22} & \dots & x_{1p} \\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+ 1&   x_{n1} & x_{n2} & \dots & x_{np} 
+ \end{pmatrix}$$ 
+ 
+
+### OLS Estimates
+
+**Mathematical formula for the OLS estimates:**
+
+The least squared estimators can be obtained precisely by  $$\widehat\beta = (X^{T}X)^{-1} X^{T}Y $$
+
+**Estimate of the mean response given $(x_1, x_2, \ldots, x_p)$:**
+
+$$ \widehat{mean}( y | x_1, x2, \ldots, x_p)= \widehat\beta_0 + \widehat\beta_1 x_{1} + \widehat\beta_2 x_{2} + \dots + \widehat\beta_p x_{p}  $$
+**Prediction of $y$ given $(x_1, x_2, \ldots, x_p)$:**
+
+$$ \widehat y | x_1, x_2, \ldots, x_p= \widehat\beta_0 + \widehat\beta_1 x_{1} + \widehat\beta_2 x_{2} + \dots + \widehat\beta_p x_{p}  $$
+Notice the above two estimates are the same but they have difference interpretations and different variances. 
+
+**Residuals:**
+
+$$\widehat e_i = y_i - \widehat y_i.$$
+
+
+### Residual Sum of Squares (RSS)
+ 
+For multiple regression, $RSS$ is estimated as:
+
+$$RSS =  \sum_{i=1}^{n} \widehat{\epsilon}_i^{2} = \sum_{i=1}^{n} (y_i-\widehat y_i)^2= \sum_{i=1}^{n} (y_i - (\widehat\beta_0 + \widehat\beta_1 x_{i1} + \widehat\beta_2 x_{i2} + \dots + \widehat\beta_p x_{ip}))^{2}$$
+
+### Mean Sum of Squares (MSE), Residual Standard Error (RSE)
+
+$\sigma^2$ is estimated by the Mean Sum of Squares (MSE). For multiple regression, MSE is defined as:
+
+
+$$MSE = \frac{RSS}{n-p-1} \\ 
+\text{where }p =\text{number of predictors}$$
+
+
+$\sigma$ is estimated by the Residual Standard Error (RSE). For multiple regression, RSE is defined as:
+
+$$\widehat \sigma= RSE = \sqrt{MSE} = \sqrt{\frac{RSS}{n-p-1}}$$
+**Remark:**
+
+Notice the denominator in $MSE$ is $n-(p+1)$, where $p+1$ is the number of predictors in the model +1. By doing so we have a nice mathematical property: $RSE$ is an unbiased estimator of $\sigma^2$. In another word, in a long run, on average the estimator hits the quantity being estimated. 
+
+
+### Goodness of Fit: $R^2$
+
+**Total Sum of Squares (TSS)**: 
+
+TSS measures the total variance in the response $Y$. When all the responses are the same which means no predictors affect the response values, then $TSS=0$. In contrast, RSS measures the amount of variability that is left unexplained after performing the regression.
+
+$$TSS = \sum_{i=1}^{n} (y_i - \bar{y})^{2}$$
+
+
+**$R^2$**: 
+
+How much variability is captured in the linear model using this set of predictors? $R^{2}$ measures the proportion of variability in $Y$ that can be explained using this set of predictors in the model. 
+
+$$R^{2} =  \frac{TSS - RSS}{TSS}$$
+
+**Remark 1:**
+
+* $TSS \geq RSS$. Why so???
+* $R^2 \leq 1$. 
+* $TSS=RSS + \sum (\widehat y_i - \bar y) ^2$.
+* $(corr (y, \widehat y))^2$
+
+An $R^{2}$ statistic that is close to 1 indicates that a large proportion of the variability in the response has been explained by the regression.
+
+
+**Remark2**:
+
+* How large $R^2$ needs to be so that you are comfortable to use the linear model?
+* Though $R^2$ is a very popular notion of goodness of fit, but it has its limitation. Mainly all the sum of squared errors defined so far are termed as `Training Errors`. It really only measures how good a model fits the data that we use to build the model. It may not generate well to unseen data. 
+
+
+### Properties of the OLS
+
+**Variance of the OLS:**
+
+The variance-covariance matrix of $\widehat \beta$
+
+$$\textbf{V}[\widehat\beta | X] = \sigma^{2} (X^{T}X)^{-1}$$
+
+*Remark:* The above covariance matrix is obtained with a homeostatic variance of $y's$. 
+
+**Normality of the OLS:**
+
+Under all the linear model assumptions, the LSE's are unbiased estimators of $\beta$ and they are normally distributed. 
+$$ \widehat\beta | X \sim N(0, \sigma^{2} (X^{T}X)^{-1})$$
+
+**Standard errors**
+
+As soon as we know how to estimate common $\sigma^2$, we can estimate $\textbf{V}[\widehat\beta | X]$ by 
+$\widehat {\textbf{V}}[\widehat\beta | X] = \widehat \sigma^{2} (X^{T}X)^{-1}$. The standard error for each $\widehat \beta_i$ will be
+$$\text {se}\, (\widehat \beta_i) = \sqrt{( \widehat \sigma^{2} (X^{T}X)^{-1} )}|_{ith\,\text{Diag}}$$
+
+**Confidence intervals each $\beta_i$:**
+
+- a $95\%$ t-interval for $\beta_i$ is 
+$$\widehat \beta_i \pm t^*_{.025} \text{se}(\widehat \beta_i).$$
+- Here $t^*_{.025}$ is the upper .025 percentile from a $t$ distribution. You may take it to be approximately $1.96$ if we have have a large number of observations $n$. 
+
+- $\text{se}(\widehat \beta_i)$ is taken from the variance formula above.
+
+- It is a t-confidence interval because we need to estimate the unknown $\sigma^2$.
+
+**Hypothesis test for each $\beta_i$:**
+
+To test that 
+$$\beta_i = 0  \;\;\; \text{vs.}\;\;\; \beta_i \ne 0$$ 
+
+which means that given other variables in the model, there is no $x_i$ effect. We carry out a t-test:
+
+$$ \text{tstat} = \frac{\widehat \beta_i - 0}{\text{se} (\widehat \beta_i)}$$
+The p-value is: 
+$$\text{p-value} = 2 \times P(\text{T variable} > |\text{tstat}|).$$
+
+We reject the null hypothesis at an $\alpha$ level if the p-value is < $\alpha$. 
+
+**A $95\%$ Confidence interval for the mean given a set of predictors:**
+
+$$\widehat y \pm \,\,t^*_{.025}\,\, \times se(\widehat y) $$
+
+
+**A $95\%$ prediction interval for a future $y$ given a set of predictors:**
+$$\widehat y \pm \,\,t^*_{.025}\,\, \times \widehat \sigma.$$
+
+
+
+
+
+## R function `lm()`
+
+Linear models are so popular due to their nice interpretations as well as clean solutions.  R-function `lm()` will be. It takes a model specification together with other options, outputs all the estimators, summary statistics such as varies sum of squares, standard errors of estimators, testing statistics and  p-values.  Finally the predicted values with margin of errors or confidence intervals and prediction intervals can be called.  
+
+
+## Compare three models
+
+Linear model effects or coefficients are defined within the model, they depend on the rest of the variables in the model.  Let us compare the three model fits, focusing on the interpretations over the coefficients of `bldg_1ksf` in different models. 
+
+### Model 1: `log_price ~ bldg_1ksf`
+
+We first do a simple regression. Let the response $y_i$ be the `log_price` and the explanatory variable $x_{i1}$ be `bldg_1ksf` ($i = 1, \dots, n=180$).
+
+
+$$y_i = \beta_0 + \beta_1 \cdot x_{i1} + \epsilon$$
+
+Model assumptions:
+
+1. Linearity: given `bldg_1ksf`, the mean of `log_price` is described as $\textbf{E}(y_i | x_i) = \beta_0 + \beta_1 x_i$
+2. Equal variance: the variances of `log_price` are the same for any `bldg_1ksf` i.e. $\textbf{Var}(y_i | x_{i1}) = \sigma_{1}^2$
+3. Normality: `log_price` is independent and normally distributed. i.e. $\epsilon_i \overset{iid}{\sim} N(0, \sigma_{1}^2)$
+
+
+We now create a model with `lm()`
+```{r}
+# str(sales)
+# summary(sales)
+fit1 <- lm(log_price ~ bldg_1ksf, data = sales) 
+# model specification response ~ x1,.. 
+summary(fit1)
+# plot(fit1, 1)
+ggplot(sales, aes(x = bldg_1ksf , y = log_price)) + 
+  geom_point() +
+  geom_smooth(method="lm",se=F) + 
+geom_hline(aes(yintercept = mean(log_price)), color = "red") 
+```
+
+
+
+Note from the summary below, the $\widehat\beta$ for `bldg_1ksf` is estimated as `r fit1$coefficients[2]`. 
+It means on average `log_price` increases `r fit1$coefficients[2]` 
+or the price increases $(e^{`r fit1$coefficients[2]`}-1)\times 100 = `r (exp(fit1$coefficients[2])-1)*100`\%$ if a house is 1k square feet larger.
+
+```{r results=TRUE}
+# review M1 
+fit1 <- lm(log_price ~ bldg_1ksf, data = sales)  # model one 
+summary(fit1) 
+# predict(fit1, newhouse, interval ="prediction",  se.fit = TRUE)  
+# TSS <- sum((sales$log_price - mean(sales$log_price))^2)
+# RSS <- sum((fit1$res)^2); RSS
+# model diagnosese
+# plot(fit1$fit, fit1$res); same as plot(fit1, 1) # linearity and homoscedasticity
+# qqnorm(fit1$res); qqline(fit1$res) # looking for a well fitted straight line
+# plot(fit1, 2)
+```
+
+
+### Model 2: `log_price ~ bldg_1ksf + land_sf`
+
+Let the response $y_i$ be the `log_price` and the explanatory variables be `bldg_1ksf` and `land_sf` ($i = 1, \dots, n=180$).
+
+
+$$y_i = \beta_0 + \beta_1 \cdot x_{i1} + \beta_2 \cdot x_{i2} + \epsilon$$
+
+
+```{r, results='asis'}
+fit2 <- lm(log_price ~ bldg_1ksf + land_sf, data = sales) 
+stargazer::stargazer(fit1, fit2, type=output_format, align=TRUE)
+```
+
+
+**Quick notes:**
+
+1. The order of predictors plays no role.
+2. The output of `lm()` is similar regardless how many predictors are used.
+3. The model assumptions extended automatically here. 
+
+```{r echo=F}
+# summary(fit2)  #sum((fit2$res)^2)
+```
+
+
+
+Let us compare `fit2: bldg_1ksf + land_sf` to `fit1: bldg_1ksf` 
+
+1. The coefficient for `bldg_1ksf` changed to `r fit1$coef[2]` from `r fit2$coef[2]`!!!!
+2. $R^{2}$ is `r summary(fit2)$r.sq` from `summary(fit1)$r.sq` - quite an increase. (Never decreasing, why?)
+3. $RSE$ (Residual standard error) is now `r summary(fit2)$sigma` decreased from `r summary(fit1)$sigma` (almost never decreasing, why?)
+
+
+The effects of variables ($\beta's$) are defined within the model. They all depend on what else are included or accounted for in the model!
+
+
+### Model 3:  Several continuous variables
+
+We now add multiple variables to our model:
+
+$$y_i = \beta_0 + \beta_1 x_{i1} + \beta_2x_{i2} + \beta_3x_{i3} + \beta_4x_{i4} + \beta_5x_{i5} + \beta_6x_{i6} + \epsilon$$
+
+
+```{r results=TRUE}
+str(sales)
+fit3 <- lm(log_price ~ bldg_1ksf + land_sf + beds + rooms +
+           fbath + hbath, data = sales)
+summary(fit3)  
+# names(fit3)
+# fit3$fit
+# fit3$res
+# # shift+c+command: to comment the portion selected 
+# confint(fit3)
+# 2*pnorm(2.84, lower.tail = FALSE) # pvalues
+# newhouse
+# predict(fit3, newhouse)
+# predict(fit3, sales[3, ]) 
+# RSS <- sum((fit3$residual)^2)
+# MSE <- RSS/219  #df n-(p+1)=226-(6+1)
+# RSE <- sqrt(MSE)
+# TSS <- sum((sales$log_price - mean(sales$log_price))^2)   # (226-1)*var(sales$log_price)
+# RSquare <- (TSS-RSS)/TSS
+# RSquare < (cor(sales$log_price, fit3$fit))^2 # correlation between y and y-hat
+```
+
+
+Based on the output from model 3:
+
+ $\widehat\beta_{bldg\_1ksf}$ = `r coef(fit3)[2]` for model 3. Is this estimate wrong?
+
+
+
+To summarize, the effects of `bldg_1ksf` from the above three models are
+
+```{r include=F}
+data.frame(Model.1 = coef(fit1)[2], 
+           Model.2 = coef(fit2)[2], 
+           Model.3 = coef(fit3)[2])
+```
+
+
+```{r results='asis'}
+# process the lm output into a table
+stargazer(fit1, fit2, fit3, type = output_format, 
+                     # ci=TRUE, ci.level = .95,
+                     keep.stat = c("n", "rsq", "sigma2", "ser"))
+```
+
+**Note:**
+
+* They are different as expected
+* Each one has its own meaning!
+
+
+
+## Inference for a fixed model
+
+
+Given a fixed model with several predictors, say model 3, assume all the linear model assumptions are met. Let us walk through the possible outcomes and point out the limitations. 
+
+
+**Fit the model:**
+
+
+```{r results=TRUE}
+str(sales)
+fit3 <- lm(log_price ~ bldg_1ksf + land_sf + beds + rooms +
+           fbath + hbath, data = sales)
+names(fit3)
+summary(fit3) ### key output
+# summary(lm(log_price ~ rooms, sales))
+# mean(sales$log_price)  13.7
+# shift+c+command: to comment the portion selected 
+# names(fit3)
+# fit3$fit
+# predict(fit3, sales)
+# predict(fit3, sales[1, ])
+# fit3$res
+# confint(fit3)
+# 2*pnorm(6.21, lower.tail = FALSE) # pvalues
+# newhouse
+# predict(fit3, newhouse, interval = "confidence", se.fit = TRUE) # CI for the mean
+# 95% CI for the average price among all such houses
+# exp(c(14.4, 14.8))
+# linearity/equal variances
+plot(fit3, 1)
+# normal qqplot
+# plot(fit3, 2)
+# the assumptions are ok.
+
+# RSS <- sum((fit3$residual)^2)
+# MSE <- RSS/499   #df=n-(p+1)=506-(6+1)=499  \sig^2
+# RSE <- sqrt(MSE)
+# TSS <- sum((sales$log_price- mean(sales$log_price))^2)
+# RSquare <- (TSS-RSS)/TSS
+# RSquare <- (cor(sales$log_price, fit3$fit))^2
+```
+
+```{r results=TRUE}
+## clean summary table and arrange it by tstat
+fit3.summary <- data.frame(summary(fit3) %>% coefficients) %>%
+  rename(estimate = Estimate,
+         se = "Std..Error",
+         tstat = "t.value",
+         pvalue = "Pr...t..") %>%
+  mutate(abs.tstat = abs(tstat)) %>%
+  arrange(desc(abs.tstat))
+
+knitr::kable(fit3.summary)
+```
+
+
+**Questions of interests:**
+
+From the Model 3:
+
+1. Write down the final OLS equation of `log_price` based on the features.
+
+2. Interpret each coefficient in the model.
+
+3. What is the standard error from the output? Precisely what does it measure?
+
+4. What does each t-interval (z)  and t-test (z) do?
+
+5. Is `fbath` **THE** most important variable, `bldg_iksf` the second, etc since they each has the smallest p-value,...
+
+6. What does `rse` do?
+
+7. If we had changed the `land_sf` to `land_1ksf` what would be the coefficient? 
+
+7. Interpret the $R^2$ reported for this model. Do you feel comfortable using the current output based on this reasonably large $R^2$
+
+8. Is `bldg_1ksf` most useful variable due to its largest coefficient in magnitude? (Statistical significance vs. practical significance)
+
+9. Can you conclude that with $95\%$ confidence all the $t$-confidence intervals provided above are right simultaneously?
+
+10. Can we conclude that `rooms` is no longer needed?
+
+11. If we refit the data without `rooms`, would all the p-values be small? 
+
+12. Can we conclude that none of `beds`, `rooms` and `hbath` is needed?
+
+13. What does the F test with a small p-value do? 
+
+
+## Confidence Interval for the Mean
+
+Base on Model 3, the mean of `log_price` among all houses with the same features as the newly built house: `bldg_1ksf` = 3, `land_sf` = 5000, `beds` = 4, `rooms` = 8, `fbath` = 4, `hbath` = 3, `frpl` = 2, `bsmt_fin` = 1, `neighborhood` = "Full", `gar1_size` = 3 is
+
+$$\widehat{y} = 12.59 + 3 \times .187 + 5000 \times .00013 - 4 \times .083 + 8 \times .0169 + 4 \times .17 + 3 \times .113 = 14.6, $$
+with a $\text{standard error}$ for the regression line $.104$.
+
+We will get the prediction, standard error and the confident intervals by `predict()`.
+
+```{r results=TRUE}
+#newhouse
+predict(fit3, newhouse, interval = "confidence", se.fit = TRUE) 
+```
+
+**Question:** What assumptions are needed to make this a valid confidence interval?
+
+Now turn the mean log price back to the dollars we get the average for such a house vary from $ exp(14.4) = 1794075$ to $ exp(14.8) = 2676445$. 
+
+## Prediction Interval 
+
+Base on Model 3, `log_price` for this particular new house is
+
+$$\widehat{y} = 12.59 + 3 \times .187 + 5000 \times .00013 - 4 \times .083 + 8 \times .0169 + 4 \times .17 + 3 \times .113 = 14.6, $$
+with a 95% prediction interval approximately to be 
+
+$$\widehat{y} \pm 2\times RSE = 14.6 \pm 2 \times .467.$$
+
+The prediction interval can be obtained by `predict()`.
+
+```{r results=TRUE}
+predict(fit3, newhouse,  interval = "predict", se.fit = TRUE) # future prediction intervals
+```
+
+Q: What assumptions are needed to make this a valid prediction interval?
+
+Now turn the predicted log price for this house back to the dollars. It varies from  $ exp(13.7) = 89.911$ to $ exp(15.6) = 5956538$. 
+
+
+## Model Diagnoses
+
+To check the model assumptions are met, we examine the residual plot and the qqplot of the residuals.
+
+We use the first and second plots of `plot(fit)`.
+
+```{r eval=T}
+par(mfrow=c(1,2), mar=c(5,2,4,2), mgp=c(3,0.5,0)) # plot(fit3) produces several plots
+plot(fit3, 1, pch=16) # residual plot
+abline(h=0, col="blue", lwd=2)
+plot(fit3, 2) # qqplot
+summary(fit3)
+```
+
+Are the linear model assumptions met for the model fit here (`fit3`)? What might be violated? 
+
+- Linearity?
+- Equal variances (homoscedasticity)?
+- Normality?
+
+Roughly speaking, the linearity, homoscedasticity and normality assumptions are satisfied. (Very subjective!)
+
+# F-test
+
+With multiple variables, we need to test whether a set of $\beta$'s being 0. 
+For example, we want to ask whether $\beta_\text{rooms}$, $\beta_\text{beds}$ and $\beta_\text{hbath}$ are not useful.
+
+Mathematically, we test the null hypothesis
+
+$$H_0: \beta_\text{rooms}=\beta_\text{beds}=\beta_\text{hbath} = 0 \mbox{ vs. } H_1: \text{at least one of } \beta_\text{rooms},\beta_\text{beds}, \beta_\text{hbath} \text{ is non-zero}$$
+    
+To put it in another way, $H_0$ is the **reduced model:**
+
+$$y_i = \beta_0 + \beta_{\text {bldg\_1ksf}} x_{\text{i,bldg\_1ksf}} + \beta_{\text{land\_sf}} \,\, x_{\text{i,land\_sf}}  + \beta_{\text{fbath}}x_{\text{i,fbath}} +  + \epsilon_i$$
+
+and $H_1$ is the **full model:**
+
+$$y_i = \beta_0 + \beta_{\text{bldg\_1ksf}} x_{\text{i,bldg\_1ksf}} +
+  \beta_{\text{beds}}x_{\text{i, beds}}  \\
++ \beta_{\text{land\_sf}} x_{\text{i,land\_sf}} +
+\beta_{\text{rooms}}x_{\text{i, rooms}} + \beta_{\text{fbath}}x_{\text{i,fbath}} +  \beta_{\text{hbath}}x_{\text{i, hbath}} + \epsilon_i$$
+
+
+**Theorem**: Assume the linear model assumptions hold, then under the $H_0$
+
+$$F_{\text{stat}}:=\frac{\frac{RSS(H_0)-RSS(H_1)}{df_1}}{\frac{RSS(H_1)}{df_2}} \sim F_{df_1, df_2}$$
+where 
+$$\begin{split} 
+{df}_1 &= \text{\# of parameters in } H_1 - \text{\# of parameters in } H_0 \\
+{df}_2 &= \text{\# of observations} - \text{\# of parameters in } H_1
+\end{split}.$$
+
+The p-value is
+
+$$\text{p-value}=P(F_{{df}_1, {df}_2} > F_{\text{stat}})$$
+
+To explore, we can run a model without `beds` and `bldg_1ksf`.
+```{r F test, results='hold'}
+fit3.0 <- lm(log_price ~ bldg_1ksf + land_sf  + fbath, data = sales) 
+# under H0
+summary(fit3.0)
+sum((summary(fit3.0)$residuals)^2) # RSS(H_0)
+
+fit3 <- lm(log_price ~ bldg_1ksf + land_sf + beds + rooms +
+           fbath + hbath, data = sales)
+summary(fit3)
+sum((summary(fit3)$residuals)^2) # RSS(H_1)  # dim(sales)
+```
+
+$$F_{\text{stat}}=\frac{\frac{RSS(H_0)-RSS(H_1)}{df_1}}{\frac{RSS(H_1)}{df_2}} = \frac{\frac{115 - 109}{3}}{\frac{109}{506-4}}=9.17$$
+
+Based on the $F$-test given above, the $p$-value is 
+$$P(F_{3,502} > 9.17) = .000006$$
+
+```{r results=TRUE}
+pf(9.17, 3, 499, lower.tail=F)  
+# hist(rf(10000, 3, 499), breaks=40)    # take a look at the F disn 
+```
+
+We reject $H-0$ and conclude that we can not drop three variables at the same time. 
+
+
+
+## `anova()`
+
+We can use the `anava()` function to carry out the above F-test `anova(H_0, H_1)`.
+
+```{r results=TRUE}
+anova(fit3.0, fit3)
+```
+
+**Conclusion:** The p-value being so small gives us evidence to reject the null hypothesis.
+
+## F-test for full model
+
+**Questions** based on the summary for `fit3`:
+
+1) What is the $F$-statistics from `summary(fit3)`? What would be the null hypothesis? 
+
+2) Can you perform a $F$-test for each $\beta$ being 0? What is the relationship between the F-test and the t-test?
+
+
+**Answer to 1) **:
+
+$F$-statistics from `summary(fit3)` is to test whether all the variables as a whole is useful, i.e., the null hypothesis is
+
+$$H_0: \beta_{\text{bldg\_1ksf}} =
+  \beta_{\text{beds}} = \beta_{\text{land\_sf}} =
+\beta_{\text{rooms}} = \beta_{\text{fbath}} = \beta_{\text{hbath}} = 0,$$
+
+and the alternative hypothesis is at least one of the $\beta$'s are not zero.
+
+```{r R^2 and F, results=TRUE}
+TSS <- sum((sales$log_price - mean(sales$log_price))^2)
+TSS
+
+fit.null <- lm(log_price ~ 1, sales)
+TSS <- sum((summary(fit.null)$residuals)^2) 
+
+RSS <- sum((summary(fit3)$residuals)^2) 
+
+# 1. R^2 = (TSS-RSS)/TSS
+R_Square <-(TSS-RSS)/TSS
+# R^2 is also the square of the corr of Y and \hat Y
+(cor(fit3$fitted.values, sales$log_price))^2 
+# How large R^2 needs to be so that we can reject the null? 
+
+# 2. We use the F-test which can be found in the summary table. 
+anova(fit.null, fit3)
+summary(fit3)$fstatistic
+```
+
+**Answer to 2)**:
+
+We can perform F-test with the full model and models with one less variable one by one. For example, 
+$$H_0: \beta_{\text{beds}} = 0 \quad \mbox{vs} \quad H_1: \beta_{\text{beds}} \neq 0, $$
+which becomes a $t$-test.
+
+We can use `anova()` to perform this $F$-test with a single variable.
+
+```{r, results=TRUE}
+fit_no_rooms <- lm(log_price ~ bldg_1ksf + land_sf + rooms + hbath + fbath, sales)
+anova(fit_no_rooms, fit3)
+```
+
+Let's compare with the $t$-test.
+
+```{r, results=TRUE}
+summary(fit3)
+```
+
+The p-values are the same. 
+
+\pagebreak
+
+# Categorical Predictors: `neighborhood`
+
+Let's focus on location. We pick three neighborhoods, Lincoln Park (LP), Hyde Park (HP), and Near West Side (NWS), in our dataset and explore the following questions:
+
+1. Are houses in Lincoln Park more valuable than others?
+2. How does `neighborhood` affect the price?
+
+Model with a categorical variable is termed as a "One Way ANOVA"
+
+First, we get the sample means and sample standard error for each group, and plot each
+```{r results=TRUE}
+sales %>%
+group_by(neighborhood) %>%
+  summarise(
+    mean = mean(log_price),
+    sd  = sd(log_price),
+    n = n()
+  )
+  
+ggplot(sales) + geom_boxplot(aes(x = neighborhood, y = log_price))
+```
+
+
+We use indicator predictors to analyze the effect of `neighborhood`.
+
+
+
+## Model 1 - One Way ANOVA
+
+$$y_{i|x=HP} = \mu_{HP} + \epsilon_i$$
+$$y_{i|x=LP} = \mu_{LP} + \epsilon_i$$
+$$y_{i|x=NWS} = \mu_{NWS} + \epsilon_i$$
+where $\mu_{HP}$, $\mu_{LP}$ and $\mu_{NWS}$ are the mean MPG of each continent and $\epsilon \sim N(0,\sigma^2)$. We want to compare the three means and this can be done through linear model with indicator functions.
+
+We are interested in the following hypotheses:
+
+$$H_0: \mu_{HP} = \mu_{LP} = \mu_{NWS}$$
+
+
+Let 
+
+* `HP` as the base 
+
+* $x_1$ be the indicator function of being `LP`, i.e. $I\{neighborhood = LP\}$
+
+* $x_2$ be the indicator function of being `NWS` $I\{neighborhood = NWS\}$
+
+Then the above Anova model is same as
+
+$$\begin{split}  y_i &= \beta_{HP} + \beta_{LP} x_{1,i} + \beta_{NWS} x_{2,i} + \epsilon_i \\ &= \beta_{HP} + \beta_{LP} I\{neighborhood = LP\} + \beta_{NWS} I\{neighborhood = NWS\} + \epsilon_i \end{split} $$
+where
+
+* $\beta_{HP} = \textbf{E}(Price|HP)$
+
+* $\beta_{LP} = \textbf{E}(Price|LP)-\textbf{E}(Price|HP)$: the increment between Lincoln Park and Hyde Park
+
+* $\beta_{NWS} = \textbf{E}(Price|NWS)-\textbf{E}(Price|HP)$: the increment between North West Side and Hyde Park
+
+
+To test $$H_0: \mu_{HP} = \mu_{LP} = \mu_{NWS}$$ is same as to test
+$$H_0: \beta_{LP} = \beta_{NWS} = 0$$
+
+
+Now we can use `lm()` to fit the model and house out the tests
+
+```{r results=TRUE}
+fit.neighborhood <- lm(log_price ~ neighborhood, sales)
+summary(fit.neighborhood)  
+```
+
+The $F$-stat here is to test $H_0: \; \beta_{LP} = \beta_{NWS} = 0$, i.e., there is no difference among the three neighborhood.  We reject $H_0$ at $\alpha=0.01$, and conclude the mean `log_price`'s are different among the three neighborhood.  This can be also achieved using `Anova()` from the car package!
+
+
+
+```{r, results=T}
+Anova(fit.neighborhood)
+```
+
+### Changing the base category
+
+We use `HP` as the base category in the `neighborhood` variable. Therefore, each coefficient captures the effect of the level vs. `HP`.
+
+```{r, results=T}
+levels(sales$neighborhood)
+model.matrix(fit.neighborhood)[5:20, ]
+```
+
+Remarks: `fit.neighborhood` can also be obtained from
+
+```{r}
+fit.neighborhood.1 <- lm(log_price ~ I(neighborhood == "LINCOLN PARK") + I(neighborhood == "NEAR WEST SIDE") , sales)
+summary(fit.neighborhood.1)    
+model.matrix(fit.neighborhood.1)[5:10, ]
+```
+
+We also show a model without intercept $\beta_0$. Can you interpret the summary table below? 
+```{r results=TRUE}
+fit.neighborhood.2 <- lm(log_price ~ 0 + neighborhood , sales) #
+summary(fit.neighborhood.2)  
+model.matrix(fit.neighborhood.2)[5:10, ] # try to show you the indicator variables created
+```
+
+Questions from the above fit:
+
+- What does each $t$-test do?
+- What does $R^2$ mean?
+- What does the $F$-test do here? 
+
+
+**`constrast()`**
+
+To estimate the mean difference between two regions, we can use the `contrast()` function from package `contrast`.
+
+```{r  results=TRUE, eval=FALSE}
+contrast(fit.neighborhood, list(neighborhood = "LINCOLN PARK"), list(neighborhood = "HYDE PARK"))
+contrast(fit.neighborhood, list(neighborhood = "LINCOLN PARK"), list(neighborhood = "NEAR WEST SIDE"))
+```
+
+**Changing base level**
+
+We can choose the base level as we want. We demonstrate this by setting up houses without neighborhood as the base category:
+
+```{r results=TRUE}
+sales_neighborhood <- sales
+sales_neighborhood$neighborhood <- factor(sales_neighborhood$neighborhood, 
+                                          levels = c("NEAR WEST SIDE", "HYDE PARK", "LINCOLN PARK"))  
+summary(lm(log_price ~ neighborhood, sales_neighborhood))
+```
+
+Note that:
+
+1. The $F$-stat should be the same. 
+2. The coefficients are different but the mean estimates are the same.
+
+
+**Drawback of one way Anova:** other factors should be also taken into consideration.
+
+
+## Model 2 - Model without Interaction
+
+Let us take one important variable `land_sf` in addition to the `neighborhood`. We might automatically use our additive model as follows:
+
+
+$$\text{Log\_price} = \beta_{HP} + \beta_{LP} \cdot I(neighborhood = LP) + \beta_{NWS} \cdot I(neighborhood = NWS) + \beta_1 \cdot land\_sf + \epsilon$$
+
+
+Let's fit and plot the least squared estimates as functions of `land_sf` and `neighborhood`:
+```{r}
+fit.no.interation <- lm(log_price ~ neighborhood+land_sf, sales)
+coefs <- (summary(fit.no.interation))$coefficients[, 1]
+
+ggplot(sales, aes(x = land_sf, y = log_price, color = neighborhood)) + 
+  geom_point() + 
+  geom_abline(intercept =coefs[1], slope=coefs[4], color ="#F8766D") + 
+  geom_abline(intercept =coefs[1]+coefs[2], slope=coefs[4], color = "#00BA38") +
+  geom_abline(intercept =coefs[1]+coefs[3], slope=coefs[4], color ="#619CFF") +
+  labs(title = "Model Without Interactions")
+```
+
+
+This model is termed a model without interaction. Here we assume that the effect of `land_sf` on `Log_price` is the same controlling for each `neighborhood`. 
+
+
+```{r results=TRUE}
+fit.no.interation <- lm(log_price ~ land_sf + neighborhood, sales)
+summary(fit.no.interation)   # Anova(fit.no.interation)
+```
+
+To test whether `neighborhood` is significant after controlling for `land_sf`, we can use `anova(H_0, H_1)`.
+
+```{r results=TRUE}
+anova(lm(log_price ~ land_sf, sales), fit.no.interation)  
+#anova( fit.no.interation, lm(log_price ~ land_sf, sales)  )  
+```
+
+p-value < 0.01, a strong evidence of rejecting the null hypothesis that there is a `neighborhood` effect.
+
+
+### `Anova()`
+
+We can also use `Anova()` from the `car` package.
+
+```{r results=TRUE}
+Anova(fit.no.interation) 
+```
+
+We reject $H_0$ at $\alpha=0.01$, i.e., controlling `land_sf`, we have the strong evidence that the effect of `neighborhood` is different.
+
+
+**Remark:** Models without interactions are simple and we can test neighborhood effects directly. But we may ask ourselves is this assumption reasonable?
+
+```{r}
+predict(fit.no.interation, newhouse)
+predict(fit.no.interation, newhouse, interval = "predict", se.fit = TRUE)
+predict(fit.no.interation, newhouse, interval = "confidence", se.fit = TRUE)
+```
+
+## Model 3 - Model with Interaction
+
+It is possible that  `land_sf` effects depend on  `neighborhood`.
+
+```{r eval=T}
+ggplot(sales, aes(x = land_sf, y = log_price, color = neighborhood)) + 
+  geom_point() + 
+  geom_smooth(method = "lm" , se =F, HPrange=TRUE) + 
+  labs(title = "Model With Interactions")
+```
+
+As we can see from the plot, houses in Lincoln Park and Hypde Park is more expensive if `land_sf` is larger; while prices in near west side do not vary much with `land_sf`. 
+In addition, the slope for Lincoln Park is steeper than that for Hypde Park, meaning the same unit increase in `land_sf` yields higher price increase for Lincoln Park. To capture the difference in `land_sf` between the three neighborhoods, we introduce models with interactions `log_price` ~ `land_sf` by `neighborhood`. 
+
+$$y_{i|HP,\, land\_sf} = \beta_{HP} + \beta_{1_{HP}} \cdot land\_sf + \epsilon_i$$
+$$y_{i|LP,\, land\_sf} = \beta_{LP} + \beta_{1_{LP}} \cdot land\_sf + \epsilon_i$$
+
+$$y_{i|NWS,\, land\_sf} = \beta_{NWS} + \beta_{1_{NWS}} \cdot land\_sf + \epsilon_i$$
+
+This can be done through the following indicators:
+
+
+$$Y = \beta_{HP} + \beta_{LP} \cdot I(neighborhood = LP) + \beta_{NWS} \cdot I(neighborhood = NWS) + \\
+ \beta_{1_{HP}} \cdot land\_sf + \beta_{1_{LP}} \cdot land\_sf \cdot I(neighborhood = LP) + \beta_{1_{NWS}} \cdot land\_sf \cdot I(neighborhood = NWS) + \epsilon$$
+
+
+Similarly, 
+
+* $\beta_{LP}$ is the increment of intercept between Lincoln Park and Hyde Park, ... 
+
+* $\beta_{1_{LP}}$ is the increment of slope between Lincoln Park and Hyde Park, ...
+
+Use `lm()` with interaction: 
+
+```{r results=TRUE}
+fit.with.interaction <- lm(log_price ~ land_sf*neighborhood, sales)
+summary(fit.with.interaction)    #model.matrix(fit.with.interaction)[1:3,]
+#summary(lm(log_price ~ land_sf + neighborhood + land_sf*neighborhood, sales)) # this is same as fit.with.interaction
+```
+
+**Question:** Is the interaction effect significant? Are the effects of `land_sf` the same across `neighborhood`? 
+
+To test there is no interaction is same as to test
+$$H_0: \beta_{1_{LP}} = \beta_{1_{NWS}} = 0$$
+which we can do with `anova()`
+```{r results=TRUE}
+anova(fit.no.interation, fit.with.interaction)
+Anova(fit.with.interaction) # only get the F-test for interaction effects
+```
+
+
+We reject the null hypothesis at 0.001 level, which indicates there is an interaction effect between `land_sf` and neighborhood.
+
+For the predictions:
+
+```{r}
+predict(fit.with.interaction, newhouse)
+predict(fit.with.interaction, newhouse, interval = "predict", se.fit = TRUE)
+predict(fit.with.interaction, newhouse, interval = "confidence", se.fit = TRUE)
+```
+
+\pagebreak
+
+# A more flexible model
+
+We now try a model which includes all sensible variables.
+
+Note that `bsmt_fin` is a categorical variable with three levels and `type_resd` is a categorical variable with five levels. We will first convert `bsmt_fin` into `basement` and `type_resd` into a categorical variable.
+
+```{r results=TRUE}
+#str(sales)
+sales$basement <- factor(sales$bsmt_fin, levels = 1:3, labels = c("Full", "Apt", "None"))
+levels(sales$basement)
+```
+
+```{r}
+sales$type <- factor(sales$type_resd, 
+                     levels = 1:5,
+                     labels = c("1 Story", "2 Story", "3 Story +", "Split Level", "1.5 Story"))
+levels(sales$type)  
+```
+
+The census tract ID `census_tract_geoid` should be also a categorical variable.
+
+```{r}
+sales$census_tract_geoid <- as.factor(sales$census_tract_geoid)
+```
+
+
+```{r results=TRUE}
+data2 <- sales %>% select(-bsmt_fin, -type_resd, -longitude, -latitude)
+names(data2)
+```
+
+**QUESTION**: What would have happened if you have added `census_tract_geoid` into the model???
+
+```{r results=TRUE}
+fit.all <- lm(log_price ~. -census_tract_geoid, data2)    #convenient way to include all variables
+summary(fit.all)
+Anova(fit.all)
+
+# fit.all.tract <- lm(log_price ~., data2) 
+# Anova(fit.all.tract)  # notice there is no df for neighborhood and why?
+
+```
+
+The $t$-table is pretty messy, many variables are not significant, need to do `Anova()`
+
+```{r results=TRUE}
+Anova(fit.all)
+```
+
+
+
+Comments:
+
+1. `neighborhood` is still significant after accounting for all other variables.
+2. Can we drop all the variables with $p$-values larger than $.05$?
+3. We don't have to use a model with all $p$-value being small!
+
+
+
+**Model diagnosis**: check if three assumptions of linear models are met.
+
+Residuals vs Fitted and qqnormal Plot, both plots look fine.
+```{r  eval = T}
+par(mfrow=c(1,2))
+plot(fit.all, 1) 
+plot(fit.all, 2) 
+```
+
+
+
+We now provide confidence Interval for the mean of houses like our `newhouse`
+```{r results=TRUE}
+fit.mean.new <- predict(fit.all, newhouse, interval = "confidence") 
+fit.mean.new
+```
+
+
+We also provide prediction interval on this `newhouse`
+```{r results=TRUE}
+fit.new <- predict(fit.all, newhouse, interval = "prediction", se.fit=TRUE)
+fit.new$fit
+fit.new$se.fit
+fit.new$residual.scale
+```
+
+
+# Summary
+
+Summary about linear models:
+
+   1. Linear model is simple and has nice interpretations.
+   
+   2. Coefficient for each predictor depends on the model. 
+    
+   3. LS automatically adjusts the unit of predictors.
+   
+   4. $t$-tests: the effect of each coeff. (Does not rank the importance of the predictors)
+    
+   5. $F$-tests: test a set of predictors (t-tests being special cases!)
+   
+   6. Model assumptions: all in residuals 
+   
+   7. The most damaging model violation is the presence of heteroscedasticity. It threatens the validity of each test. But we can use sandwich estimators to get the standard errors. See section Heteroscedasticity in the appendix.
+   
+   8. Last but not least: linear models used here only show associations between predictors and the response on average. We CANNOT conclude causality at all.
+
+
+**BIGGEST QUESTION: How to identify a set of important variables or which model to use?????**
+
+Choose models with small "prediction errors" is one way to go. We will discuss more in a seperate module  
+
+
+**We could do model selection via backward eliminations**
+
+We may eliminate the variable with the largest p-value and repeat the process to land a smaller model. We may stop either all the variables are significant at, say .1 level or we may stop at any stage.
+
+```{r model selection}
+fit.all.0 <- lm(log_price ~. - census_tract_geoid, data2)    #convenient way to include all variables
+Anova(fit.all.0)
+data2.1 <- data2 %>% select(-census_tract_geoid, -time_sale_month_of_year) # take time_sale_month_of_year out
+fit.all.1 <- lm(log_price ~.,  data2.1)    
+Anova(fit.all.1)
+fit.all.2 <- update(fit.all.1, .~. -beds ) # refit the model taking beds out
+Anova(fit.all.2)
+fit.all.3 <- update(fit.all.2, .~. -rooms)
+Anova(fit.all.3)
+fit.all.4 <- update(fit.all.3, .~. -hbath)
+Anova(fit.all.4) 
+fit.final <- fit.all.4 
+```
+We keep `fit.all.4` as our final model. And here is the final LS analysis. We can continue to write a quick summary for the housing price analyses... Skip here. 
+
+```{r final model}
+summary(fit.final) 
+```
+
+
+**The module ends here.**
+
+**(Some interesting analyses!!!)**
+
+ What would happen if we treat `time_sale_month_of_year` as a categorical variable?  
+
+```{r results='hide'}
+#summary(as.factor(sales$census_tract_geoid))
+names(sales)
+summary(lm(log_price ~ bldg_1ksf + time_sale_month_of_year, sales))
+summary(lm(log_price ~ bldg_1ksf + as.factor(time_sale_month_of_year), sales))
+Anova(lm(log_price ~ bldg_1ksf + as.factor(time_sale_month_of_year), sales))
+```
+
+
+\pagebreak
+
+# Appendices
+
+## Using formulae to obtain OLS estimates
+
+Take `fit3` and recreate $\widehat\beta$'s. 
+```{r}
+design.x <-  model.matrix(fit3)  #fit3$model gives us Y and x1 x2...x 
+y <- fit3$model[, 1]
+# design.x[, 1]
+rse <- (summary(fit3))$sigma
+beta <-  (solve( t(design.x) %*% design.x)) %*% t(design.x) %*% y # reconstruct LS estimates
+beta
+```
+
+Reconstructing the covariance matrix from `fit3`
+```{r}
+summary(fit3)$cov.unscaled   # inverse (X' X)
+cov.beta <- (rse^2) * (summary(fit3)$cov.unscaled)  # alternatively we can get the cov matrix this way
+```
+
+
+Calculating the Standard Error from `fit3`
+```{r}
+sd.beta <- sqrt(diag(cov.beta)) # check to see this agrees with the sd for each betahat
+sd.beta  # this shoulbe be same as the Std. Error in the summary table
+
+summary(fit3)$coeff[, "Std. Error" ]
+```
+
+## Heteroscedasticity
+
+**Sandwich estimator**:
+
+In a linear model, when $\text{Var}(y_i| x_i)=\sigma^2(x_i)$, i.e., the linear model is hereroscedastic. While the least squared estimator of $\beta$ is still unbiased but, the usual variance $\text{Var}( {\bf\widehat{\beta}}) \neq \sigma^2 (X^T X)^{-1}$. It has been long known among in econometrics that we can correct the variance estimator by a `Sandwich estimator`. Since
+$$\text{Var}( {\bf\widehat{\beta}}) = (X^T X)^{-1}(X^T D X) (X^T X)^{-1}$$
+where $D$ is a diagonal matrix of $d_i=\sigma^2_i=\text{Var}(y_i|x_i)$. We of course do not know $d_i$. So we use squared residual to estimate $d_i$: $\widehat d_i = (y_i-\widehat y_i)^2$. That yields famous Sandwich Estimator due to White (1980): 
+$$\text{Var}( {\bf\widehat{\beta}}) = (X^T X)^{-1}(X^T \widehat D X) (X^T X)^{-1}$$
+This correction has been implemented in various packages. We use `sandwich` with function `lmtest::coeftest(fm, df = Inf, vcov = vcovHC)`. `HC` means:Heteroscedasticity-Consistent Covariance Matrix Estimation. 
+
+To produce a HC corrected confidence intervals for $\beta$, we first get a linear fit as  $\text{fit} = lm(y~....)$. Then apply: `lmtest::coeftest(fit, df = Inf, vcov = vcovHC)` to get the correct confidence intervals for $\beta$. 
+
+**Remark:** Even linearity is not there, we can still fit a linear model. We can interpret the linear function as an approximation to the mean. The confidence intervals obtained using the sandwich estimators are still valid.
+
+Let us revisit the final model with all variables:
+```{r results=TRUE}
+# data2 <- select(sales, log_price, bldg_1ksf:gar1_size)
+fit.all <- lm(log_price ~. - census_tract_geoid, data2) 
+Anova(fit.all)
+plot(fit.all, 1)
+```
+From the residual plot, one may worry the violation of linearity, as well as presence of heteroscedasticity. 
+
+To provide a more trust-worthy analysis we may use sandwich standard errors for a more accurate inferences over coefficients.  
+
+
+```{r results = TRUE}
+#sandwich(fit.all)  # gives us HC cov estimator
+#vcovHC(fit.all) # also gives us the HC cov matrix
+fit.all.hc <- lmtest::coeftest(fit.all, df = Inf, vcov = vcovHC)
+fit.all.hc  # output
+```
+
+Let compare regulare lm output and the one with sandwich cov estimation:
+```{r results = "asis"}
+stargazer(fit.all, fit.all.hc, type = output_format ) 
+```
+While the sandwich standard errors remain more or less the same as before, we do notice one difference: Asian houses are more efficient than that of American houses at $\alpha = .1$. 
+
+The estimators for each coefficient remain the same!
+
+```{r results = "asis"}
+cov <- vcovHC(fit.all, type = "HC")
+robust.se <- sqrt(diag(cov))
+stargazer(fit.all, fit.all.hc, type = output_format,
+          se = list(NULL, robust.se)) 
+```
+
+**Remark:** How to incorporate heteroscedasticity in prediction intervals? One easy way out is to fit another model taking residual square as response and use predicted values as the variance give $x$. We could use a more relaxed non-linear model such as trees/Random Forests. 
+
+
+
+
+
+
+## Model Diagnoses via a perfect linear model
+
+We look to fit a model containing 100 points of the equation 
+
+$$y = 1 +2x + N(0,2) \quad i.e. \quad \beta_0 = 1 ,\beta_1 = 2, \sigma^2 = 2.$$
+
+```{r}
+par(mfrow=c(1,1))
+
+x <- runif(100)
+y <- 1+2*x+rnorm(100,0, 2)
+fit <- lm(y~x)
+fit.perfect <- summary(lm(y~x))
+rsquared <- round(fit.perfect$r.squared,2)
+hat_beta_0 <- round(fit.perfect$coefficients[1], 2)
+hat_beta_1 <- round(fit.perfect$coefficients[2], 2)
+plot(x, y, pch=16, 
+     ylim=c(-8,8),
+     xlab="a perfect linear model: true mean: y=1+2x in blue, LS in red",
+     main=paste("R squared= ",rsquared, 
+                ", LS estimates b1=",hat_beta_1, "and b0=", hat_beta_0))
+abline(fit, lwd=4, col="red")
+lines(x, 1+2*x, lwd=4, col="blue")
+```
+
+
+Residual plot
+```{r}
+plot(fit$fitted, fit$residuals, pch=16,
+     ylim=c(-8, 8),
+     main="residual plot")
+abline(h=0, lwd=4, col="red")
+```
+
+
+
+
+Check normality
+```{r}
+qqnorm(fit$residuals, ylim=c(-8, 8))
+qqline(fit$residuals, lwd=4, col="blue")
+```
+
+
+
+
+
+The following example tells us we can't look at y directly to check the normality assumption. Why not? We really need to examine residuals!
+
+```{r}
+par(mfrow=c(2,2))
+x <- runif(1000)
+y <- 1+20*x+rnorm(1000,0, 2)
+plot(x, y, pch=16)
+hist(y, breaks=40)
+qqnorm(y, main="qqnorm for y")
+qqline(y)
+fit <- lm(y~x)
+qqnorm(fit$residuals, main="qqnorm for residuals")
+qqline(fit$residuals)
+par(mfrow=c(1,1))
+
+data.frame( mean = mean(y), std.dev = sd(y))
+```
+
+
+## Colinearity
+
+When some $x$'s are highly correlated we can not separate the effect. But it is still fine for the purpose of prediction.
+
+A simulation to illustrate some consequences of colinearity. Each $p$-value for $x_1$ and $x_2$ is large but the null of both $\beta's = 0$ are rejected....  Because $x_1$ and $x_2$ are highly correlated.
+
+```{r}
+par(mfrow=c(2,1))
+set.seed(1)  
+x1 <- runif(100)
+x2 <- 2*x1+rnorm(100, 0,.1)    # x1 and x2 are highly correlated
+y <- 1+2*x1+rnorm(100,0, .7)   # model
+newdata.cor <- cbind(y, x1,x2) # to see the strong correlations..
+pairs(newdata.cor, pch=16)
+```
+
+$x_1$ is a useful predictor
+```{r results=TRUE}
+summary(lm(y~x1)) 
+```
+
+$x_2$ is a useful predictor
+```{r results=TRUE}
+summary(lm(y~x2))
+```
+
+$x_1$ and $x_2$ together show that one is not
+```{r results=TRUE}
+summary(lm(y~x1+x2)) 
+```
+
+Putting both highly correlated var's together we can't separate the effect of each one, though the model is still useful!
+```{r results=TRUE}
+data.frame(Corealation = cor(x1, x2))
+```
+Model dignoses show validities of model assupmtions. 
+```{r}
+plot(lm(y~x1+x2), 1:2)
+```
+
+##   F-distribution
+
+A quick look at an $F$ distribution. One may change $df_1 = 4$ and $df_2=200$ to see the changes in the distribution.
+```{r  eval = T}
+## 
+
+df1= 4
+df2= 200
+hist(rf(10000, df1, df2), freq=FALSE, breaks=200)   # pretty skewed to the right
+
+# Fstat=(summary(fit3))$fstat    # The Fstat, df1, df2
+# pvalue=1-pf(Fstat[1], 6, 219) #or pf(Fstat[1], 6, 219, lower.tail=FALSE)
+# 
+#  # As long as Fstat is larger than 2.14, we reject the null at .05 level.
+# data.frame(F_stat = Fstat[1] , pvalue = pvalue , Cutoff = qf(.95, 6, 219))
+```

@@ -1,0 +1,1647 @@
+---
+title: "Project 1: Vectors"
+subtitle: "Multivariable Calculus (4A)"
+author: "Aiden Gu"
+date: "2024-09-14"
+output:
+  html_document:
+    highlight: haddock
+    theme: lumen
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+mathjax: default
+header-includes:
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width=7, fig.height=4, format = "latex")
+if(!require('pacman')) {
+  install.packages('pacman')
+}
+pacman::p_load(rgl, plotly, gt, ggplot2, gridExtra, grid, dplyr, tidyr, cowplot) 
+```
+
+```{css style settings, echo = FALSE}
+blockquote {
+    padding: 10px 20px;
+    margin: 0 0 20px;
+    line-height: 20px;
+    font-size: 14px;
+    border-left: 5px solid #eee;
+}
+
+.page-break {
+  page-break-before: always;
+  display: block;
+  margin-top: 700px;
+}
+
+.title {
+  text-align: center;
+  margin-top: 50px;
+}
+
+.subtitle, .author, .date {
+  text-align: center;
+}
+```
+
+![](/Users/aidengu/Desktop/Grade 12/Multivariable Calculus/Project 1 – Vectors – Chapter 11/Graphics/Cover.png){#id .class width=800px height=650px}
+
+\pagebreak
+
+# Table of Contents
+* Table of Contents
+* Part 1 - Distance Between Skew Lines\
+    a. Proving Skewness\
+    b. Distance Between Two Skew Lines\
+    c. General Formula for Distance\
+* Part 2 - The Dot Product in Genetics\
+    a. Comparing Genetics\
+    b. Mixing Genetics\
+    c. Genetic Optimization\
+* Summary\
+    a. Medium\
+
+\
+
+# Part 1 - Distance Between Skew Lines
+
+In 3-dimensional geometry, a pair of skew lines is a pair of two lines that are neither parallel nor intersect.
+
+```{r example plot of skew lines}
+# Define two line segments
+line1_start <- c(-10, -3, -4)
+line1_end <- c(4, 10, 0)
+
+line2_start <- c(5, -7, -10)
+line2_end <- c(-10, 4, 5)
+
+# Create 3D plot using plotly
+plot_ly() %>%
+  add_trace(x = c(line1_start[1], line1_end[1]),
+            y = c(line1_start[2], line1_end[2]),
+            z = c(line1_start[3], line1_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'red', width = 5),
+            name = "Line 1") %>%
+  add_trace(x = c(line2_start[1], line2_end[1]),
+            y = c(line2_start[2], line2_end[2]),
+            z = c(line2_start[3], line2_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'blue', width = 5),
+            name = "Line 2") %>%
+  layout(title = list(text = "Example of Skew Lines",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-10, 10)),
+                      yaxis = list(title = 'Y-axis', range = c(-10, 10)),
+                      zaxis = list(title = 'Z-axis', range = c(-10, 10)),
+                      aspectmode = "cube"),
+         margin = list(t = 100))
+```
+
+### a. Proving Skewness
+
+Consider the following two lines in space:
+
+$\qquad L_1: \; x=4+5t \; , \; y=5+5t \; , \; z=1-4t
+\\
+\qquad L_2: \; x=4+s \; , \; y=-6+8s \; , \; z=7-3s$
+
+From the coefficients of the two parametric equations, we can find the two direction vectors:
+
+$\qquad \vec{v_1} = \begin{pmatrix}5\\5\\-4\end{pmatrix}
+\quad , \quad
+\vec{v_2} = \begin{pmatrix}1\\8\\-3\end{pmatrix}$
+
+```{r part 1a}
+# Define two line segments
+line1_start <- c(9, 10, -3)
+line1_end <- c(-7.25, -6.25, 10)
+
+line2_start <- c(3.5, -10, 8.5)
+line2_end <- c(6, 10, 1)
+
+# Create 3D plot using plotly
+plot1 <- plot_ly() %>%
+  add_trace(x = c(line1_start[1], line1_end[1]),
+            y = c(line1_start[2], line1_end[2]),
+            z = c(line1_start[3], line1_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'red', width = 5),
+            name = "L<sub>1</sub>") %>%
+  add_trace(x = c(line2_start[1], line2_end[1]),
+            y = c(line2_start[2], line2_end[2]),
+            z = c(line2_start[3], line2_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'blue', width = 5),
+            name = "L<sub>2</sub>") %>%
+  layout(title = list(text = "Plot of L<sub>1</sub> and L<sub>2</sub>",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-10, 10)),
+                      yaxis = list(title = 'Y-axis', range = c(-10, 10)),
+                      zaxis = list(title = 'Z-axis', range = c(-10, 10)),
+                      aspectmode = "cube"),
+         margin = list(t = 100))
+
+# Define vectors for the second plot (start from origin)
+vector1 <- c(5, 5, -4)
+vector2 <- c(1, 8, -3)
+
+# Create the second 3D plot with vectors
+plot2 <- plot_ly() %>%
+  add_trace(x = c(0, vector1[1]), 
+            y = c(0, vector1[2]), 
+            z = c(0, vector1[3]), 
+            type = 'scatter3d', mode = 'lines', 
+            line = list(color = 'red', width = 5),
+            name = "v<sub>1</sub>") %>%
+  add_trace(x = c(0, vector2[1]), 
+            y = c(0, vector2[2]), 
+            z = c(0, vector2[3]), 
+            type = 'scatter3d', mode = 'lines', 
+            line = list(color = 'blue', width = 5),
+            name = "v<sub>2</sub>") %>%
+  layout(title = list(text = "Plot of Direction Vectors",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-10, 10)),
+                      yaxis = list(title = 'Y-axis', range = c(-10, 10)),
+                      zaxis = list(title = 'Z-axis', range = c(-10, 10)),
+                      aspectmode = "cube"),
+         margin = list(t = 100))
+
+# Use grid.arrange to display plots side by side
+manipulateWidget::combineWidgets(plot1, plot2, nrow = 1)
+```
+
+Just by looking at $\vec{v_1}$ & $\vec{v_2}$, it is obvious that they are not scalar multiples of each other, thus $L_1$ & $L_2$ are not `parallel`. For a more rigorous proof, we can use the fact that the cross product of parallel vectors will always be $\vec0$, since the magnitude of a cross product is equal to $\| \vec{u} \| \cdot \| \vec{w} \| \cdot \sin\theta$, and for parallel vectors $\theta=0$ thus $\| \vec{u} \| \cdot \| \vec{w} \| \cdot \sin\theta=0$. Taking the cross product of $\vec{v_1}$ & $\vec{v_2}$, we get $\vec{v_1} \times \vec{v_2} = \begin{pmatrix}17\\11\\35\end{pmatrix}$, which is not $\vec0$, thus $L_1$ & $L_2$ are not `parallel`.
+
+\
+
+Before we can prove that the two lines are `skew`, we must first also prove that they do not `intersect`. To do this, we must first assume that the two lines do indeed intersect at a point. This point will have the property that it satisfies both the equation of $L_1$ and the equation of $L_2$, thus if there is no solution that satisfy both equations, there is no point of intersection, and the two lines do not intersect. Below are the vector equations of the two lines:
+
+$\qquad \begin{cases}
+L_1: \begin{pmatrix}x\\y\\z\end{pmatrix} = \begin{pmatrix}4\\5\\1\end{pmatrix} + t \begin{pmatrix}5\\5\\-4\end{pmatrix}
+\\
+\\
+L_2: \begin{pmatrix}x\\y\\z\end{pmatrix} = \begin{pmatrix}4\\-6\\7\end{pmatrix} + s \begin{pmatrix}1\\8\\-3\end{pmatrix}
+\end{cases}$
+
+Since we know the assumed intersection point $\begin{pmatrix}x\\y\\z\end{pmatrix}$ must satisfy both equations, we can get the following:
+
+$\qquad
+\begin{pmatrix}4\\5\\1\end{pmatrix} + t \begin{pmatrix}5\\5\\-4\end{pmatrix} =
+\begin{pmatrix}4\\-6\\7\end{pmatrix} + s \begin{pmatrix}1\\8\\-3\end{pmatrix}
+$
+
+Some simple rearrangements can get us:
+
+$\qquad
+t \begin{pmatrix}5\\5\\-4\end{pmatrix} - s \begin{pmatrix}1\\8\\-3\end{pmatrix} =
+\begin{pmatrix}4\\-6\\7\end{pmatrix} - \begin{pmatrix}4\\5\\1\end{pmatrix}
+$
+
+$\qquad \therefore \quad
+t \begin{pmatrix}5\\5\\-4\end{pmatrix} + s \begin{pmatrix}-1\\-8\\3\end{pmatrix} =
+\begin{pmatrix}0\\-11\\6\end{pmatrix}
+$
+
+We can then rewrite this as an augmented matrix and perform row reduction (Gaussian elimination) to obtain the reduced row echelon form.
+
+$\qquad
+\left[
+    \begin{array}{cc|c}
+        \stackrel{t}{5}  & \stackrel{s}{-1} & 0   \\
+        5  & -8 & -11 \\
+        -4 & 3  & 6   \\
+    \end{array}
+\right]
+\xrightarrow{R_2=R_2-R_1}
+\left[
+    \begin{array}{cc|c}
+        5  & -1 & 0   \\
+        0  & -7 & -11 \\
+        -4 & 3  & 6   \\
+    \end{array}
+\right]
+\xrightarrow{R_3=R_3+\frac{4}{5}R_1}
+\left[
+    \begin{array}{cc|c}
+        5  & -1 & 0   \\
+        0  & -7 & -11 \\
+        0 & \frac{11}{5}  & 6   \\
+    \end{array}
+\right]
+\xrightarrow{R_3=R_3+\frac{11}{35}R_2}
+\left[
+    \begin{array}{cc|c}
+        5 & -1 & 0   \\
+        0 & -7 & -11 \\
+        0 & 0  & \frac{89}{35}   \\
+    \end{array}
+\right]$
+
+$\qquad
+\xrightarrow{R_1=\frac{1}{5}R_1}
+\left[
+    \begin{array}{cc|c}
+        1  & -\frac{1}{5} & 0   \\
+        0  & -7 & -11 \\
+        0 & 0  & \frac{89}{35}   \\
+    \end{array}
+\right]
+\xrightarrow{R_2=-\frac{1}{7}R_2}
+\left[
+    \begin{array}{cc|c}
+        1  & -\frac{1}{5} & 0   \\
+        0  & 1 & \frac{11}{7} \\
+        0 & 0  & \frac{89}{35}   \\
+    \end{array}
+\right]
+\xrightarrow{R_3=\frac{35}{89}R_3}
+\left[
+    \begin{array}{cc|c}
+        1  & -\frac{1}{5} & 0   \\
+        0  & 1 & \frac{11}{7} \\
+        0 & 0  & 1   \\
+    \end{array}
+\right]
+\xrightarrow{R_1=R_1+\frac{1}{5}R_2}
+\left[
+    \begin{array}{cc|c}
+        1  & 0 & \frac{11}{35}   \\
+        0  & 1 & \frac{11}{7} \\
+        0 & 0  & 1   \\
+    \end{array}
+\right]$
+
+$\qquad
+\xrightarrow{R_1=R_1-\frac{11}{35}R_3}
+\left[
+    \begin{array}{cc|c}
+        1  & 0 & 0   \\
+        0  & 1 & \frac{11}{7} \\
+        0 & 0  & 1   \\
+    \end{array}
+\right]
+\xrightarrow{R_2=R_2-\frac{11}{7}R_3}
+\left[
+    \begin{array}{cc|c}
+        1  & 0 & 0   \\
+        0  & 1 & 0 \\
+        0 & 0  & 1   \\
+    \end{array}
+\right]$
+
+Looking at the reduced row echelon form of the augmented matrix, it is apparent that there is no solution for $t$ & $s$, since the third row $0t+0s=1$ simply cannot be true (for a linear system of three equations with two variables, $R_3$ is a linear combination of $R_1$ & $R_2$, thus for the system to have a solution, $R_3$ must be $\left[\begin{array}{cc|c}0&0&0\end{array}\right]$). Therefore, because there is no solution for $t$ & $s$, it can then be concluded that there exist no point in space that lies on both lines, thus $L_1$ & $L_2$ do not `intersect`. Since $L_1$ & $L_2$ are not `parallel` nor do not `intersect`, the two lines are `skew`.
+
+\
+
+Although $L_1$ & $L_2$ are `skew`, they still lie on two `parallel planes`. Since a plane can be defined by two parallel vectors and a position vector, we can define a plane by the two direction vectors $\vec{v_1}$ & $\vec{v_2}$ of the two lines, and by definition, this plane is parallel to both lines. By adjusting the position vector the plane uses, we can get two different parallel planes based on whether we use the position vector of $L_1$ or the position vector of $L_2$.
+
+\
+
+#### Constructing the Parallel Planes of Two Lines {.unlisted .unnumbered}
+
+<video src="/Users/aidengu/Desktop/Grade 12/Multivariable Calculus/Project 1 – Vectors – Chapter 11/Graphics/Part1a_Parallel_Planes.mp4" width="640" height="360" controls></video>
+
+\
+
+To find the equation for these planes, we can use the formula $\left(\vec{r}-\vec{p}\right)\cdot\vec{n}=0$, where $\vec{r}=\begin{pmatrix}x\\y\\z\end{pmatrix}$, $\vec{p}$ is a point on the plane, and $\vec{n}$ is a normal vector of the plane. We can find this normal vector by taking the cross product of the two direction vectors, since $\vec{v_1}$ & $\vec{v_2}$ are parallel to the plane we're looking for. The cross product will yield a vector orthogonal to both direction vectors, thus normal to the plane:
+
+$\qquad
+\vec{n}=\vec{v_1}\times\vec{v_2}=
+\begin{pmatrix}5\\5\\-4\end{pmatrix}
+\times
+\begin{pmatrix}1\\8\\-3\end{pmatrix}
+=\begin{pmatrix}17\\11\\35\end{pmatrix}$
+
+```{r part 1a normal vector}
+# Define vectors for the second plot (start from origin)
+vector1 <- c(5 , 5 , -4)
+vector2 <- c(1 , 8 , -3)
+vector3 <- c(17, 11, 35)
+
+# Create the 3D plot with vectors
+plot_ly() %>%
+  add_trace(x = c(0, vector1[1]), 
+            y = c(0, vector1[2]), 
+            z = c(0, vector1[3]), 
+            type = 'scatter3d', mode = 'lines', 
+            line = list(color = 'red', width = 5),
+            name = "v<sub>1</sub>") %>%
+  add_trace(x = c(0, vector2[1]), 
+            y = c(0, vector2[2]), 
+            z = c(0, vector2[3]), 
+            type = 'scatter3d', mode = 'lines', 
+            line = list(color = 'blue', width = 5),
+            name = "v<sub>2</sub>") %>%
+  add_trace(x = c(0, vector3[1]), 
+            y = c(0, vector3[2]), 
+            z = c(0, vector3[3]), 
+            type = 'scatter3d', mode = 'lines', 
+            line = list(color = 'green', width = 5),
+            name = "n") %>%
+  layout(title = list(text = "Cross Product of Direction Vectors",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-40, 40)),
+                      yaxis = list(title = 'Y-axis', range = c(-40, 40)),
+                      zaxis = list(title = 'Z-axis', range = c(-40, 40)),
+                      aspectmode = "cube"),
+         margin = list(t = 100)) %>%
+  config(mathjax = 'cdn')
+```
+
+As for $\vec{p}$, we can choose whether to place the plane on $L_1$ or $L_2$ by using either $\vec{p_1}$ or $\vec{p_2}$. Plugging the values of $\vec{n}$ & $\vec{p}$ into the equation $(\vec{r}-\vec{p})\cdot\vec{n}=0$, we can find the two equations of the two `parallel planes`:
+
+$\qquad
+\Pi_1: \; (\vec{r}-\vec{p_1})\cdot\vec{n}=0
+\\~\\ \qquad \qquad \therefore \quad \; \left( \begin{pmatrix}x\\y\\z\end{pmatrix} - \begin{pmatrix}4\\5\\1\end{pmatrix}\right) \cdot \begin{pmatrix}17\\11\\35\end{pmatrix} =0
+\\~\\ \qquad \qquad \therefore \quad \; 17(x-4)+11(y-5)+35(z-1)=0
+\\~\\ \qquad
+\Pi_2: \; (\vec{r}-\vec{p_2})\cdot\vec{n}=0
+\\~\\ \qquad \qquad \therefore \quad \; \left( \begin{pmatrix}x\\y\\z\end{pmatrix} - \begin{pmatrix}4\\-6\\7\end{pmatrix}\right) \cdot \begin{pmatrix}17\\11\\35\end{pmatrix} =0
+\\~\\ \qquad \qquad \therefore \quad \; 17(x-4)+11(y+6)+35(z-7)=0$
+
+```{r part 1a parallel planes}
+# Define two line segments
+line1_start <- c(9, 10, -3)
+line1_end <- c(-7.25, -6.25, 10)
+
+line2_start <- c(3.5, -10, 8.5)
+line2_end <- c(6, 10, 1)
+
+# Define the plane equation
+plane_eq <- function(x, y) {
+  (-17 * (x - 4) - 11 * (y - 5) + 35) / 35
+}
+
+# Create a grid of x and y values
+x_vals <- seq(-10, 10, length.out = 50)
+y_vals <- seq(-10, 10, length.out = 50)
+grid <- expand.grid(x = x_vals, y = y_vals)
+grid$z <- plane_eq(grid$x, grid$y)
+
+# Create 3D plot using plotly
+plot1 <- plot_ly() %>%
+  add_trace(
+    type = 'surface',
+    x = matrix(grid$x, nrow = 50),
+    y = matrix(grid$y, nrow = 50),
+    z = matrix(grid$z, nrow = 50),
+    colorscale = 'Greens',
+    opacity = 0.75,
+    showscale = FALSE
+  ) %>%
+  add_trace(x = c(line1_start[1], line1_end[1]),
+            y = c(line1_start[2], line1_end[2]),
+            z = c(line1_start[3], line1_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'red', width = 5),
+            name = "L<sub>1</sub>") %>%
+  add_trace(x = c(line2_start[1], line2_end[1]),
+            y = c(line2_start[2], line2_end[2]),
+            z = c(line2_start[3], line2_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'blue', width = 5),
+            name = "L<sub>2</sub>") %>%
+  layout(title = list(text = "Plot of ∏<sub>1</sub>",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-10, 10)),
+                      yaxis = list(title = 'Y-axis', range = c(-10, 10)),
+                      zaxis = list(title = 'Z-axis', range = c(-10, 10)),
+                      aspectmode = "cube"),
+         margin = list(t = 100))
+
+# Define the plane equation
+plane_eq <- function(x, y) {
+  (-17 * (x - 4) - 11 * (y + 6)) / 35 + 7
+}
+
+# Create a grid of x and y values
+x_vals <- seq(-10, 10, length.out = 50)
+y_vals <- seq(-10, 10, length.out = 50)
+grid <- expand.grid(x = x_vals, y = y_vals)
+grid$z <- plane_eq(grid$x, grid$y)
+
+# Create second 3D plot using plotly
+plot2 <- plot_ly() %>%
+  add_trace(
+    type = 'surface',
+    x = matrix(grid$x, nrow = 50),
+    y = matrix(grid$y, nrow = 50),
+    z = matrix(grid$z, nrow = 50),
+    colorscale = 'Greens',
+    opacity = 0.75,
+    showscale = FALSE
+  ) %>%
+  add_trace(x = c(line1_start[1], line1_end[1]),
+            y = c(line1_start[2], line1_end[2]),
+            z = c(line1_start[3], line1_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'red', width = 5),
+            name = "L<sub>1</sub>") %>%
+  add_trace(x = c(line2_start[1], line2_end[1]),
+            y = c(line2_start[2], line2_end[2]),
+            z = c(line2_start[3], line2_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'blue', width = 5),
+            name = "L<sub>2</sub>") %>%
+  layout(title = list(text = "Plot of ∏<sub>2</sub>",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-10, 10)),
+                      yaxis = list(title = 'Y-axis', range = c(-10, 10)),
+                      zaxis = list(title = 'Z-axis', range = c(-10, 10)),
+                      aspectmode = "cube"),
+         margin = list(t = 100))
+
+# Use grid.arrange to display plots side by side
+manipulateWidget::combineWidgets(plot1, plot2, nrow = 1)
+```
+
+Now that we have the two parallel planes, we can try to find the `distance` between these two planes. Two planes in a 3D space will always intersect unless they are parallel, in which case they will be a constant distance apart from each other.
+
+\
+
+We currently know that $\vec{p_1}$ lies on $\Pi_1$, $\vec{p_2}$ lies on $\Pi_2$, and $\vec{n}$ is normal to both $\Pi_1$ & $\Pi_2$. The distance between $\Pi_1$ & $\Pi_2$ will simply be the magnitude of the normal vector that spans between them, which we can get from the projection of a vector $\vec{u}$ that connects the two planes onto the normal vector $\vec{n}$. To make the calculations easier, we can simply choose to define $\vec{u}$ as $\vec{p_2} - \vec{p_1}$, as this will return a vector that goes from $\vec{p_1}$ to $\vec{p_2}$, thus a vector that spans between $\Pi_1$ & $\Pi_2$.
+
+```{r part 1a projection}
+# Define two line segments
+line1_start <- c(9, 10, -3)
+line1_end <- c(-7.25, -6.25, 10)
+
+line2_start <- c(3.5, -10, 8.5)
+line2_end <- c(6, 10, 1)
+
+u_start <- c(4, 5, 1)
+u_end <- c(4, -6, 7)
+
+uprime_end <- c(4, -6, 7)
+uprime_start <- uprime_end - c(17,11,35)*89/1635
+
+n_start <- uprime_end
+n_end <- n_start + c(17, 11, 35)
+
+# Define the plane equations
+plane1_eq <- function(x, y) {
+  (-17 * (x - 4) - 11 * (y - 5) + 35) / 35
+}
+plane2_eq <- function(x, y) {
+  (-17 * (x - 4) - 11 * (y + 6)) / 35 + 7
+}
+
+# Create a grid of x and y values
+x1_vals <- seq(-10, 10, length.out = 50)
+y1_vals <- seq(-10, 10, length.out = 50)
+grid1 <- expand.grid(x = x1_vals, y = y1_vals)
+grid1$z <- plane1_eq(grid1$x, grid1$y)
+x2_vals <- seq(-10, 10, length.out = 50)
+y2_vals <- seq(-10, 10, length.out = 50)
+grid2 <- expand.grid(x = x2_vals, y = y2_vals)
+grid2$z <- plane2_eq(grid2$x, grid2$y)
+
+# Create 3D plot using plotly
+plot1 <- plot_ly() %>%
+  add_trace(
+    type = 'surface',
+    x = matrix(grid1$x, nrow = 50),
+    y = matrix(grid1$y, nrow = 50),
+    z = matrix(grid1$z, nrow = 50),
+    colorscale = 'Greys',
+    opacity = 0.33,
+    showscale = FALSE
+  ) %>%
+  add_trace(
+    type = 'surface',
+    x = matrix(grid2$x, nrow = 50),
+    y = matrix(grid2$y, nrow = 50),
+    z = matrix(grid2$z, nrow = 50),
+    colorscale = 'Greys',
+    opacity = 0.33,
+    showscale = FALSE
+  ) %>%
+  add_trace(x = c(line1_start[1], line1_end[1]),
+            y = c(line1_start[2], line1_end[2]),
+            z = c(line1_start[3], line1_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'red', width = 5),
+            name = "L<sub>1</sub>") %>%
+  add_trace(x = c(line2_start[1], line2_end[1]),
+            y = c(line2_start[2], line2_end[2]),
+            z = c(line2_start[3], line2_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'blue', width = 5),
+            name = "L<sub>2</sub>") %>%
+  add_trace(x = c(u_start[1], u_end[1]),
+            y = c(u_start[2], u_end[2]),
+            z = c(u_start[3], u_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'purple', width = 5),
+            name = "u") %>%
+  add_trace(x = c(n_start[1], n_end[1]),
+            y = c(n_start[2], n_end[2]),
+            z = c(n_start[3], n_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'green', width = 5),
+            name = "n") %>%
+  add_trace(x = c(uprime_start[1], uprime_end[1]),
+            y = c(uprime_start[2], uprime_end[2]),
+            z = c(uprime_start[3], uprime_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'black', width = 5),
+            name = "Proj<sub>n</sub>u") %>%
+  layout(title = list(text = "Plot of Projection of u Onto n",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-10, 10)),
+                      yaxis = list(title = 'Y-axis', range = c(-10, 10)),
+                      zaxis = list(title = 'Z-axis', range = c(-10, 10)),
+                      aspectmode = "cube"),
+         margin = list(t = 100))
+
+# Create second 3D plot using plotly
+n_start <- c(0, 0, 0)
+n_end <- c(17, 11, 35)/sqrt(1635)
+
+plot2 <- plot_ly() %>%
+  add_trace(x = c(n_start[1], n_end[1]),
+            y = c(n_start[2], n_end[2]),
+            z = c(n_start[3], n_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'green', width = 5),
+            name = "n&#770;") %>%
+  layout(title = list(text = "Plot of n&#770;",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-1, 1)),
+                      yaxis = list(title = 'Y-axis', range = c(-1, 1)),
+                      zaxis = list(title = 'Z-axis', range = c(-1, 1)),
+                      aspectmode = "cube"),
+         margin = list(t = 100))
+
+# Use grid.arrange to display plots side by side
+manipulateWidget::combineWidgets(plot1, plot2, nrow = 1)
+```
+
+#### Finding the Distance between $\Pi_1$ & $\Pi_2$ {.unlisted .unnumbered}
+
+<video src="/Users/aidengu/Desktop/Grade 12/Multivariable Calculus/Project 1 – Vectors – Chapter 11/Graphics/Part1a_Projection.mp4" width="640" height="360" controls></video>
+
+\
+
+Numerically, the distance $D$ will just be the magnitude of the projection $\vec{u'} = \text{Proj}_{\vec{n}}\vec{u}$, where $\|\vec{u'}\| = \|\left( \vec{u} \cdot \hat{n} \right) \cdot \hat{n}\|$ is the dot product between $\vec{u}$ and the normalized normal vector $\hat{n} = \frac{\vec{n}}{\|\vec{n}\|}$. Altogether, we get the formula $D = \| \vec{u'} \| = \lvert \vec{u} \cdot \hat{n} \rvert = \left| \left( \vec{p_2} - \vec{p_1} \right) \cdot \left(\frac{\vec{n}}{\|\vec{n}\|}\right) \right|$. Since we already know $\vec{p_1}$, $\vec{p_2}$, & $\vec{n}$, we can now calculate the distance $D$:
+
+$\qquad
+D = \left| \left( \vec{p_2} - \vec{p_1} \right) \cdot \left(\frac{\vec{n}}{\|\vec{n}\|}\right) \right|
+\\~\\ \qquad \quad \!
+= \left| \left( \begin{pmatrix}4\\-6\\7\end{pmatrix} - \begin{pmatrix}4\\5\\1\end{pmatrix} \right) \cdot \left(\frac{ \begin{pmatrix}17\\11\\35\end{pmatrix} }{\sqrt{17^2+11^2+35^2}}\right) \right|
+\\~\\ \qquad \quad \!
+= \left| \begin{pmatrix}0\\-11\\6\end{pmatrix} \cdot \begin{pmatrix}17\\11\\35\end{pmatrix} \cdot \frac{1}{\sqrt{1635}} \right|
+\\~\\ \qquad \quad \!
+= \left| 89 \cdot \frac{1}{\sqrt{1635}} \right|
+\\~\\ \qquad \quad \!
+= \left| 2.201 \right|
+\\~\\ \qquad \quad \!
+= 2.201$
+
+This `distance` $D$ is not just the distance between $\Pi_1$ 7 $\Pi_2$, but also the distance (the minimum distance) between $L_1$ & $L_2$; this is because the distance between any two points on $L_1$ & $L_2$ will always at least be distance $D$ apart, but there is at least one set of points on $L_1$ & $L_2$ that are exactly distance $D$ apart, thus the `minimum distance` between $L_1$ & $L_2$.
+
+\
+
+### b. Distance Between Two Skew Lines
+
+Here we will use the same procedure we found in **part a** to find the distance between more examples of two lines. The formula we will use from **part a** is $D = \left| \left( \vec{p_2} - \vec{p_1} \right) \cdot \left(\frac{\vec{n}}{\|\vec{n}\|}\right) \right|$.
+
+For our first example, we will find the `distance` between these two pair of lines:
+
+$\qquad L_1: \; x=2t \; , \; y=4t \; , \; z=6t
+\\
+\qquad L_2: \; x=1-s \; , \; y=4+s \; , \; z=-1+s$
+
+```{r part1b line pair 1}
+# Define two line segments
+line1_start <- c(-10, -20, -30)
+line1_end <- c(10, 20, 30)
+
+line2_start <- c(11, -6, -11)
+line2_end <- c(-9, 14, 9)
+
+# Create 3D plot using plotly
+plot_ly() %>%
+  add_trace(x = c(line1_start[1], line1_end[1]),
+            y = c(line1_start[2], line1_end[2]),
+            z = c(line1_start[3], line1_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'red', width = 5),
+            name = "Line 1") %>%
+  add_trace(x = c(line2_start[1], line2_end[1]),
+            y = c(line2_start[2], line2_end[2]),
+            z = c(line2_start[3], line2_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'blue', width = 5),
+            name = "Line 2") %>%
+  layout(title = list(text = "Plot of L<sub>1</sub> and L<sub>2</sub>",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-10, 10)),
+                      yaxis = list(title = 'Y-axis', range = c(-10, 10)),
+                      zaxis = list(title = 'Z-axis', range = c(-10, 10)),
+                      aspectmode = "cube"),
+         margin = list(t = 100))
+```
+
+Converting to vector equations, we get:
+
+$\qquad \begin{cases}
+L_1: \begin{pmatrix}x\\y\\z\end{pmatrix} = \begin{pmatrix}0\\0\\0\end{pmatrix} + t \begin{pmatrix}2\\4\\6\end{pmatrix}
+\\
+\\
+L_2: \begin{pmatrix}x\\y\\z\end{pmatrix} = \begin{pmatrix}1\\4\\-1\end{pmatrix} + s \begin{pmatrix}-1\\1\\1\end{pmatrix}
+\end{cases}$
+
+From this, we can find:
+
+$\qquad \vec{p_1} = \begin{pmatrix}0\\0\\0\end{pmatrix}
+\quad , \quad
+\vec{v_1} = \begin{pmatrix}2\\4\\6\end{pmatrix}
+\quad , \quad
+\vec{p_2} = \begin{pmatrix}1\\4\\-1\end{pmatrix}
+\quad , \quad
+\vec{v_2} = \begin{pmatrix}-1\\1\\1\end{pmatrix}$
+
+Taking the cross product of $\vec{v_1}$ & $\vec{v_2}$:
+
+$\qquad
+\vec{n}=\vec{v_1}\times\vec{v_2}=
+\begin{pmatrix}2\\4\\6\end{pmatrix}
+\times
+\begin{pmatrix}-1\\1\\1\end{pmatrix}
+=\begin{pmatrix}-2\\-8\\6\end{pmatrix}$
+
+Now that we have $\vec{p_1}$, $\vec{p_2}$, & $\vec{n}$, we can use the formula to find the `distance` $D$ between $L_1$ & $L_2$:
+
+$\qquad
+D = \left| \left( \vec{p_2} - \vec{p_1} \right) \cdot \left(\frac{\vec{n}}{\|\vec{n}\|}\right) \right|
+\\~\\ \qquad \quad \!
+= \left| \left( \begin{pmatrix}1\\4\\-1\end{pmatrix} - \begin{pmatrix}0\\0\\0\end{pmatrix} \right) \cdot \left(\frac{ \begin{pmatrix}-2\\-8\\6\end{pmatrix} }{\sqrt{(-2)^2+(-8)^2+(6)^2}}\right) \right|
+\\~\\ \qquad \quad \!
+= \left| \begin{pmatrix}1\\4\\-1\end{pmatrix} \cdot \begin{pmatrix}-2\\-8\\6\end{pmatrix} \cdot \frac{1}{\sqrt{104}} \right|
+\\~\\ \qquad \quad \!
+= \left| -40 \cdot \frac{1}{\sqrt{104}} \right|
+\\~\\ \qquad \quad \!
+= \left| -3.922 \right|
+\\~\\ \qquad \quad \!
+= 3.922$
+
+Note that this formula does not work for `parallel` lines. If the lines are `parallel`, then the cross product of $\vec{v_1}$ & $\vec{v_2}$ will be $\vec{0}$, and thus dividing by $\| \vec{n} \|$ will return an error for dividing by $0$. If the lines `intersect`, however, then the vector between any two points we choose will be orthogonal to the normal vector of the two lines, yielding a dot product of $0$ and thus a distance of $D=0$.
+
+For our second example, we will find the `distance` between another two pair of lines:
+
+$\qquad L_1: \; x=3t \; , \; y=2-t \; , \; z=-1+t
+\\
+\qquad L_2: \; x=1+4s \; , \; y=-2+s \; , \; z=-3-3s$
+
+```{r part1b line pair 2}
+# Define two line segments
+line1_start <- c(-15, 7, -6)
+line1_end <- c(15, -3, 4)
+
+line2_start <- c(-11, -5, 6)
+line2_end <- c(13, 1, -12)
+
+# Create 3D plot using plotly
+plot_ly() %>%
+  add_trace(x = c(line1_start[1], line1_end[1]),
+            y = c(line1_start[2], line1_end[2]),
+            z = c(line1_start[3], line1_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'red', width = 5),
+            name = "Line 1") %>%
+  add_trace(x = c(line2_start[1], line2_end[1]),
+            y = c(line2_start[2], line2_end[2]),
+            z = c(line2_start[3], line2_end[3]),
+            type = 'scatter3d', mode = 'lines',
+            line = list(color = 'blue', width = 5),
+            name = "Line 2") %>%
+  layout(title = list(text = "Plot of L<sub>1</sub> and L<sub>2</sub>",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-10, 10)),
+                      yaxis = list(title = 'Y-axis', range = c(-10, 10)),
+                      zaxis = list(title = 'Z-axis', range = c(-10, 10)),
+                      aspectmode = "cube"),
+         margin = list(t = 100))
+```
+
+Converting to vector equations, we get:
+
+$\qquad \begin{cases}
+L_1: \begin{pmatrix}x\\y\\z\end{pmatrix} = \begin{pmatrix}0\\2\\-1\end{pmatrix} + t \begin{pmatrix}3\\-1\\1\end{pmatrix}
+\\
+\\
+L_2: \begin{pmatrix}x\\y\\z\end{pmatrix} = \begin{pmatrix}1\\-2\\-3\end{pmatrix} + s \begin{pmatrix}4\\1\\-3\end{pmatrix}
+\end{cases}$
+
+From this, we can find:
+
+$\qquad \vec{p_1} = \begin{pmatrix}0\\2\\-1\end{pmatrix}
+\quad , \quad
+\vec{v_1} = \begin{pmatrix}3\\-1\\1\end{pmatrix}
+\quad , \quad
+\vec{p_2} = \begin{pmatrix}1\\-2\\-3\end{pmatrix}
+\quad , \quad
+\vec{v_2} = \begin{pmatrix}4\\1\\-3\end{pmatrix}$
+
+Taking the cross product of $\vec{v_1}$ & $\vec{v_2}$:
+
+$\qquad
+\vec{n}=\vec{v_1}\times\vec{v_2}=
+\begin{pmatrix}3\\-1\\1\end{pmatrix}
+\times
+\begin{pmatrix}4\\1\\-3\end{pmatrix}
+=\begin{pmatrix}2\\13\\7\end{pmatrix}$
+
+Now that we have $\vec{p_1}$, $\vec{p_2}$, & $\vec{n}$, we can use the formula to find the `distance` $D$ between $L_1$ & $L_2$:
+
+$\qquad
+D = \left| \left( \vec{p_2} - \vec{p_1} \right) \cdot \left(\frac{\vec{n}}{\|\vec{n}\|}\right) \right|
+\\~\\ \qquad \quad \!
+= \left| \left( \begin{pmatrix}1\\-2\\-3\end{pmatrix} - \begin{pmatrix}0\\2\\-1\end{pmatrix} \right) \cdot \left(\frac{ \begin{pmatrix}2\\13\\7\end{pmatrix} }{\sqrt{2^2+13^2+7^2}}\right) \right|
+\\~\\ \qquad \quad \!
+= \left| \begin{pmatrix}1\\-4\\-2\end{pmatrix} \cdot \begin{pmatrix}2\\13\\7\end{pmatrix} \cdot \frac{1}{\sqrt{222}} \right|
+\\~\\ \qquad \quad \!
+= \left| -64 \cdot \frac{1}{\sqrt{222}} \right|
+\\~\\ \qquad \quad \!
+= \left| -4.295 \right|
+\\~\\ \qquad \quad \!
+= 4.295$
+
+\
+
+### c. General Formula for Distance
+
+Now that we've found the formula $D = \left| \left( \vec{p_2} - \vec{p_1} \right) \cdot \left(\frac{\vec{n}}{\|\vec{n}\|}\right) \right|$ in **part a** and have seen it work in **part b**, we can try to write a general formula for the `distance` between any two lines. Let the two lines be written by the following two sets of parametric equations:
+
+$\qquad L_1: \; x=x_1+a_1t \; , \; y=y_1+b_1t \; , \; z=z_1-c_1t
+\\
+\qquad L_2: \; x=x_2+a_2t \; , \; y=y_2+b_2t \; , \; z=z_2-c_2t$
+
+To use our formula, we must find $\vec{p_1}$, $\vec{v_1}$, $\vec{p_2}$, & $\vec{v_2}$:
+
+$\qquad \vec{p_1} = \begin{pmatrix}x_1\\y_1\\z_1\end{pmatrix}
+\quad , \quad
+\vec{v_1} = \begin{pmatrix}a_1\\b_1\\c_1\end{pmatrix}
+\quad , \quad
+\vec{p_2} = \begin{pmatrix}x_2\\y_2\\z_2\end{pmatrix}
+\quad , \quad
+\vec{v_2} = \begin{pmatrix}a_2\\b_2\\c_2\end{pmatrix}$
+
+Then to find $\vec{n}$:
+
+$\qquad
+\vec{n}=\vec{v_1}\times\vec{v_2}=
+\begin{pmatrix}a_1\\b_1\\c_1\end{pmatrix}
+\times
+\begin{pmatrix}a_2\\b_2\\c_2\end{pmatrix}
+=\begin{pmatrix}b_1c_2-c_1b_2\\c_1a_2-a_1c_2\\a_1b_2-b_1a_2\end{pmatrix}$
+
+Now, using our formula $D = \left| \left( \vec{p_2} - \vec{p_1} \right) \cdot \left(\frac{\vec{n}}{\|\vec{n}\|}\right) \right|$ from **part a**:
+
+$\qquad
+D = \left| \left( \vec{p_2} - \vec{p_1} \right) \cdot \left(\frac{\vec{n}}{\|\vec{n}\|}\right) \right|
+\\~\\ \qquad \quad \!
+= \left| \left( \begin{pmatrix}x_1\\y_1\\z_1\end{pmatrix} - \begin{pmatrix}x_2\\y_2\\z_2\end{pmatrix} \right) \cdot \left(\frac{ \begin{pmatrix}b_1c_2-c_1b_2\\c_1a_2-a_1c_2\\a_1b_2-b_1a_2\end{pmatrix} }{\sqrt{(b_1c_2-c_1b_2)^2+(c_1a_2-a_1c_2)^2+(a_1b_2-b_1a_2)^2}}\right) \right|
+\\~\\ \qquad \quad \!
+= \left| \frac{1}{\sqrt{(b_1c_2-c_1b_2)^2+(c_1a_2-a_1c_2)^2+(a_1b_2-b_1a_2)^2}} \cdot \begin{pmatrix}x_1-x_2\\y_1-y_2\\z_1-z_2\end{pmatrix} \cdot \begin{pmatrix}b_1c_2-c_1b_2\\c_1a_2-a_1c_2\\a_1b_2-b_1a_2\end{pmatrix} \right|
+\\~\\ \qquad \quad \!
+= \frac{ \left| \left( (x_1-x_2)(b_1c_2-c_1b_2) + (y_1-y_2)(c_1a_2-a_1c_2) + (z_1-z_2)(a_1b_2-b_1a_2) \right) \right| }{\sqrt{(b_1c_2-c_1b_2)^2+(c_1a_2-a_1c_2)^2+(a_1b_2-b_1a_2)^2}}$
+
+This may seem like a mess, but we can rewrite the `triple scalar product` $(\vec{p_1}-\vec{p_2})\cdot \vec{n} = (\vec{p_1}-\vec{p_2})\cdot (\vec{v_1} \times \vec{v_2})$ as a determinant:
+
+$\qquad
+D = 
+\left|
+\frac
+{
+\begin{vmatrix}
+     x_1-x_2 & a_1 & a_2 \\ 
+     y_1-y_2 & b_1 & b_2 \\
+     z_1-z_2 & c_1 & c_2 
+\end{vmatrix}
+}{
+\sqrt{(b_1c_2-c_1b_2)^2+(c_1a_2-a_1c_2)^2+(a_1b_2-b_1a_2)^2}
+}
+\right|$
+
+And that right there is the **general formula for the distance between two skew lines**.
+
+\
+
+\newpage
+
+\
+
+# Part 2 - The Dot Product in Genetics
+
+`Alleles` are different variants of a gene. Suppose that there exists a gene has four variants: $A_1$, $A_2$, $B$, & $O$. These alleles show up in differing frequencies depending on the `population`. Fortunately, we also have the relative frequencies (percentage) of these alleles for four different populations: `Eskimo`, `Bantu`, `English`, & `Korean`. Below is a table and four pie charts of the relative frequencies:
+
+```{r part 2 dataframe, fig.align = 'center'}
+allele_data <- data.frame(
+  Allele = c("A<sub>1</sub>", "A<sub>2</sub>", "B", "O"),
+  Eskimo = c(0.29, 0.00, 0.03, 0.68),
+  Bantu = c(0.10, 0.09, 0.12, 0.69),
+  English = c(0.21, 0.07, 0.06, 0.66),
+  Korean = c(0.22, 0.00, 0.21, 0.57)
+)
+
+table <- allele_data %>%
+  gt() %>%
+  cols_label(
+    Eskimo = "Eskimo",
+    Bantu = "Bantu",
+    English = "English",
+    Korean = "Korean"
+  ) %>%
+  # Render HTML in the Allele column for subscripts
+  fmt_markdown(columns = "Allele") %>%
+  # Apply center alignment and "Courier New" font to the body cells
+  tab_style(
+    style = cell_text(align = "center", font = c("Courier New", "monospace")),
+    locations = cells_body()
+  ) %>%
+  # Apply center alignment and "Courier New" font to the column headers
+  tab_style(
+    style = cell_text(align = "center", font = c("Courier New", "monospace")),
+    locations = cells_column_labels(everything())
+  ) %>%
+  # Apply "Courier New" font and light blue background to the table title
+  tab_header(
+    title = "Allele Relative Frequency by Population"
+  ) %>%
+  tab_style(
+    style = list(
+      cell_text(font = c("Courier New", "monospace"), align = "center", weight="bold"),
+      cell_fill(color = "lightblue")  # Light blue background for title
+    ),
+    locations = cells_title(groups = "title")
+  ) %>%
+  # Apply blue background and white text to the column labels
+  tab_style(
+    style = list(
+      cell_text(font = c("Courier New", "monospace"), align = "center"),
+      cell_fill(color = "#E0F7FA")  # Blue background for column labels
+    ),
+    locations = cells_column_labels(everything())
+  ) %>%
+  # Apply varying shades of gray for each column
+  tab_style(
+    style = cell_fill(color = "gray80"),  # Lightest gray for the 1st column
+    locations = cells_body(columns = c(Allele))
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#FF9999"),  # Slightly darker gray for the 2nd column
+    locations = cells_body(rows = c(1))
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#66B2FF"),  # Slightly darker gray for the 3rd column
+    locations = cells_body(rows = c(2))
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#99FF99"),  # Slightly darker gray for the 4th column
+    locations = cells_body(rows = c(3))
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#FFCC99"),  # Slightly darker gray for the 5th column
+    locations = cells_body(rows = c(4))
+  ) %>%
+  # Remove borders between all cells
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "#D3D3D3",
+      weight = px(2)
+    ),
+    locations = cells_body()
+  ) %>%
+  tab_style(
+    style = cell_borders(
+      sides = c("left", "right"),
+      color = "#D3D3D3",
+      weight = px(2)
+    ),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_borders(
+      sides = c("top", "bottom", "left", "right"),,
+      color = "#D3D3D3",
+      weight = px(2)
+    ),
+    locations = cells_title(groups = "title")
+  ) %>%
+  tab_style(
+    style = cell_borders(
+      sides = c("top", "bottom"),
+      color = NULL,
+      weight = NULL
+    ),
+    locations = cells_body()
+  )
+
+# Function to create pie chart
+create_pie_chart <- function(data, population_name) {
+  ggplot(data, aes(x = "", y = value, fill = Allele)) +
+    geom_bar(width = 1, stat = "identity") +
+    coord_polar("y") +
+    theme_void() +
+    labs(title = population_name) +
+    scale_fill_manual(
+      values = c("#FF9999", "#66B2FF", "#99FF99", "#FFCC99"),
+      labels = c(
+        expression(A[1]),
+        expression(A[2]),
+        "B",
+        "O"
+      )  # Adjust the labels to handle subscripts correctly
+    ) +
+    theme(
+      plot.title = element_text(family = "Courier", face = "bold", size = 14),
+      legend.text = element_text(family = "Courier", size = 10),
+      legend.title = element_text(family = "Courier", face = "bold", size = 12),
+    )
+}
+
+# Pie chart data
+pie_data <- list(
+  Eskimo = allele_data %>% select(Allele, Eskimo) %>% pivot_longer(cols = Eskimo, names_to = "Population", values_to = "value"),
+  Bantu = allele_data %>% select(Allele, Bantu) %>% pivot_longer(cols = Bantu, names_to = "Population", values_to = "value"),
+  English = allele_data %>% select(Allele, English) %>% pivot_longer(cols = English, names_to = "Population", values_to = "value"),
+  Korean = allele_data %>% select(Allele, Korean) %>% pivot_longer(cols = Korean, names_to = "Population", values_to = "value")
+)
+
+# Create pie charts
+pie_charts <- lapply(names(pie_data), function(name) {
+  create_pie_chart(pie_data[[name]], name) + theme(legend.position = "none")
+})
+
+# Extract legend from one of the pie charts
+legend <- get_plot_component(
+  create_pie_chart(pie_data[[1]], "Eskimo"),
+  'guide-box-right', return_all = TRUE
+)
+
+# Arrange pie charts in a 2x2 grid
+pie_grid <- plot_grid(
+  pie_charts[[1]], pie_charts[[2]],
+  pie_charts[[3]], pie_charts[[4]],
+  ncol = 2,
+  labels = NULL
+)
+
+# Combine legend with pie charts
+pie_plot <- plot_grid(
+  pie_grid,
+  legend, 
+  ncol = 2,
+  rel_widths = c(1, 0.1)
+)
+
+table
+pie_plot
+```
+
+### a. Comparing Genetics
+When comparing the genetic similarity, it is helpful to represent the relative frequencies of alleles in a population as a vector. It may be tempting to simple express the genetic composition of each population as a 4-dimensional vector made up of its four relative frequencies. Like with most things in life, however, the first solution you think of probably isn't the best solution.
+
+One clue would be to look at the sum of the relative frequencies of each population. If you go through the tedious process, you'll find that each column add up to $1$! *Why is that?*
+
+We've been using the term `relative frequency` to describe each entry of the table, but we've never stopped and pondered what that phrase actually means. In statistics, `frequency` is a number describing how many times something appears in a `population`, and in this case, would be the number of times a specific allele appears in one of the four populations. However, as with all things in statistics, we want to `normalize` our data, i.e. shrink everything down to a number between $0$ & $1$. To do this, we divide the frequency by the size of the population, and we get a `relative frequency`. It can help to interpret this relative frequency as the probability of getting that allele if we randomly chose a person from our selected population.
+
+In a sense, our table is actually describing four different samples of four different `probability distributions` based on ethnicity. It can get pretty difficult to compare probability distributions, since it's not just a number that we can compare with other numbers. Luckily, there is already a tool for us to compare probability distributions: the `Bhattacharyya coefficient`.
+
+An excerpt from [wikipedia](https://en.wikipedia.org/wiki/Bhattacharyya_distance) states that:
+
+> *The Bhattacharyya coefficient quantifies the "closeness" of two random statistical samples.*\
+*Given two sequences from distributions $P,Q$, bin them into $n$ buckets, and let the frequency of samples from $P$ in bucket $i$ be $P_i$, and similarly for $Q_i$, then the sample Bhattacharyya coefficient is*\
+$\qquad {\displaystyle BC(\mathbf {p} ,\mathbf {q} )=\sum _{i=1}^{n}{\sqrt {p_{i}q_{i}}}}$ ,\
+*which is an estimator of $\displaystyle BC( P ,Q)$. The quality of estimation depends on the choice of buckets; too few buckets would overestimate $\displaystyle BC( P ,Q)$, while too many would underestimate.*
+
+For our genetic scenario, $P$ & $Q$ would represent the `probability distribution` of alleles of two different types of ethnicities, $p$ & $q$ would represent the relative frequencies of a `sample` of $P$ & $Q$, and $p_i$ & $q_i$ would represent the relative frequencies of each `allele` within the samples. In our table, $p$ & $q$ would be two of the four columns, and $p_i$ & $q_i$ would be each of the entries in the columns $p$ & $q$.
+
+Looking at the formula for the `Bhattacharyya coefficient`, we can notice that there is a square root over each term of the samples. This is exactly what we are going to do with each relative frequency in our table. We will define four 4-dimensional vectors $\vec{a_1}$, $\vec{a_2}$, $\vec{a_3}$, & $\vec{a_4}$ for the respective populations `Eskimo`, `Bantu`, `English`, & `Korean`:
+
+$\qquad \vec{a_1} = \begin{pmatrix}\sqrt{0.29}\\ \sqrt{0.00}\\ \sqrt{0.03}\\ \sqrt{0.68}\end{pmatrix} = \begin{pmatrix}0.539\\0.000\\0.173\\0.825\end{pmatrix}
+\quad , \quad
+\vec{a_2} = \begin{pmatrix}\sqrt{0.10}\\ \sqrt{0.09}\\ \sqrt{0.12}\\ \sqrt{0.69}\end{pmatrix} = \begin{pmatrix}0.316\\0.300\\0.346\\0.831\end{pmatrix}
+\\~\\
+\qquad
+\vec{a_3} = \begin{pmatrix}\sqrt{0.21}\\ \sqrt{0.07}\\ \sqrt{0.06}\\ \sqrt{0.66}\end{pmatrix} = \begin{pmatrix}0.458\\0.265\\0.245\\0.812\end{pmatrix}
+\quad , \quad
+\vec{a_4} = \begin{pmatrix}\sqrt{0.22}\\ \sqrt{0.00}\\ \sqrt{0.21}\\ \sqrt{0.57}\end{pmatrix} = \begin{pmatrix}0.469\\0.000\\0.458\\0.755\end{pmatrix}$
+
+```{r part 2a vectors}
+# Define the 4D vectors
+a1 <- c(0.539, 0.000, 0.173, 0.825)
+a2 <- c(0.316, 0.300, 0.346, 0.831)
+a3 <- c(0.458, 0.265, 0.245, 0.812)
+a4 <- c(0.468, 0.000, 0.458, 0.755)
+
+# Create a data frame with the vectors
+data <- data.frame(
+  x = c(a1[1], a2[1], a3[1], a4[1]),
+  y = c(a1[2], a2[2], a3[2], a4[2]),
+  z = c(a1[3], a2[3], a3[3], a4[3]),
+  w = c(a1[4], a2[4], a3[4], a4[4])
+)
+
+# Define a color ramp function
+color_ramp <- colorRamp(c("blue", "red"))
+
+# Map the fourth dimension to colors
+data$colors <- rgb(color_ramp( (data$w - min(data$w)) / (max(data$w) - min(data$w)) ), maxColorValue = 255)
+
+# Create the 3D plot
+p1 <- plot_ly() %>%
+  add_trace(
+    x = data$x[1], y = data$y[1], z = data$z[1],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>1</sub>',
+    hovertext = paste(" x: ", data$x[1], "<br>", "y: ", "0.000", "<br>", "z: ",
+                data$z[1], "<br>", "w: ", data$w[1]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[2], y = data$y[2], z = data$z[2],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>2</sub>',
+    hovertext = paste(" x: ", data$x[2], "<br>", "y: ", "0.300", "<br>", "z: ",
+                data$z[2], "<br>", "w: ", data$w[2]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[3], y = data$y[3], z = data$z[3],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>3</sub>',
+    hovertext = paste(" x: ", data$x[3], "<br>", "y: ", data$y[3], "<br>", "z: ",
+                data$z[3], "<br>", "w: ", data$w[3]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[4], y = data$y[4], z = data$z[4],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>4</sub>',
+    hovertext = paste(" x: ", data$x[4], "<br>", "y: ", "0.000", "<br>", "z: ",
+                data$z[4], "<br>", "w: ", data$w[4]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  # Add lines for each vector with a single color
+  add_trace(
+    x = c(0, data$x[1]), y = c(0, data$y[1]), z = c(0, data$z[1]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[1], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[2]), y = c(0, data$y[2]), z = c(0, data$z[2]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[2], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[3]), y = c(0, data$y[3]), z = c(0, data$z[3]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[3], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[4]), y = c(0, data$y[4]), z = c(0, data$z[4]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[4], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  layout(title = list(text = "Plot of 4D Vectors",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-0.5, 0.75)),
+                      yaxis = list(title = 'Y-axis', range = c(-0.5, 0.75)),
+                      zaxis = list(title = 'Z-axis', range = c(-0.5, 0.75)),
+                      aspectmode = "cube"),
+         margin = list(t = 100)
+  )
+
+# Create a data frame for the color bar
+color_bar_data <- data.frame(
+  x = 0,
+  y = seq(min(data$w), max(data$w), length.out = 100),
+  color = seq(min(data$w), max(data$w), length.out = 100)
+)
+
+# Create the skinny color bar plot with labels
+color_bar_plot <- ggplotly(ggplot(color_bar_data, aes(x = x, y = y, fill = color, text = paste0("w: ", round(color, 2)))) +
+  geom_tile(width = 5) +  # Adjust width to make the bar skinny
+  scale_fill_gradient(low = "blue", high = "red", name = "Color Bar") +
+  theme_void() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_blank(),  # Remove x-axis text
+    axis.text.y = element_text(size = 10),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 14, angle = 90, vjust = 0.5),
+    panel.grid = element_blank(),  # Turn off gridlines
+    panel.grid.major = element_blank(),  # Turn off major gridlines
+    panel.grid.minor = element_blank(),   # Turn off minor gridlines
+  )+
+  labs(y = "W-axis")+
+  coord_cartesian(clip = "off") +  # Ensure labels are not clipped
+  theme(
+    plot.margin = margin(t = 20, b = 0, l = 50, r = 0)  # Adjust plot margins
+  ), tooltip = "text") %>%
+  layout(
+    hoverlabel = element_blank(),
+    xaxis = list(title = ""),
+    yaxis = list(title = "W-axis"),
+    height = 200,
+    width = 150
+  )
+
+# Print the color bar plot
+manipulateWidget::combineWidgets(p1, color_bar_plot, nrow = 1)
+```
+
+To test out our vectors, let's use it to compare the English population's genes to the Bantus and the Koreans; we will attempt to find out which ethnicity is genetically closer to the English.
+
+For 2-dimensional vectors, we can use the angle between two vectors to measure how similar they are. This is harder to visualize in 4-dimensions, but is still viable numerically.
+
+\
+
+#### Using Angles to Compare Similarity {.unlisted .unnumbered}
+
+<video src="/Users/aidengu/Desktop/Grade 12/Multivariable Calculus/Project 1 – Vectors – Chapter 11/Graphics/Part2a_2D.mp4" width="640" height="360" controls></video>
+
+\
+
+The angle between two vectors can be determined by $\vec{v}\cdot\vec{u}=\|\vec{v}\|\cdot\|\vec{u}\|\cdot\cos(\theta)$, which will actually give us the `genetic distance` between the two populations. However, before we compare the two angles directly, we can still optimize our method. Instead of looking at the angles, which ranges from $[0,2\pi]$, we can take the `cosine` of the angle. This will range from $[-1,1]$, which is a lot easier to interpret as a correlation; $-1$ means they're polar opposites, and $1$ means they are exactly the same. In fact, this method is so widespread it has its own name: `cosine similarity`. We can easily find the cosine similarity ($S_C$) of two vectors using the cosine formula for the `dot product`:
+
+$\qquad S_C = \cos(\theta) = \frac{\vec{v}\cdot\vec{u}}{\|\vec{v}\|\|\vec{u}\|}$
+
+Luckily for us, we are dealing with relative frequencies, so the magnitudes of all four of our vectors are $1$. If you stop to think about it, it should make sense; the sum of each column is $1$, each term of a vector is the square root of each entry, and the magnitude of the vector is the square root of the sum of its terms squared. When you take the sum of its terms squared, it should be equal to the sum of the corresponding column, which will always be $1$. Therefore, we can simplify our equation:
+
+$\qquad S_C = \cos(\theta) = \vec{v}\cdot\vec{u}$
+
+To find out if the English population is genetically closer to the Bantus or the Koreans, we can simply compare their two `cosine similarity` scores:
+
+$\qquad S_C(E_{nglish},B_{antu}) = \vec{a_3}\cdot\vec{a_2} = \begin{pmatrix}0.458\\0.265\\0.245\\0.812\end{pmatrix} \cdot \begin{pmatrix}0.316\\0.300\\0.346\\0.831\end{pmatrix} = 0.984$
+
+$\qquad S_C(E_{nglish},K_{orean}) = \vec{a_3}\cdot\vec{a_4} = \begin{pmatrix}0.458\\0.265\\0.245\\0.812\end{pmatrix} \cdot \begin{pmatrix}0.469\\0.000\\0.458\\0.755\end{pmatrix} = 0.940$
+
+From that, we can conclude that $S_C(E_{nglish},B_{antu}) > S_C(E_{nglish},K_{orean})$, so therefore the English population is genetically more similar to the `Bantus` than the `Koreans`. If you look at their corresponding pie charts from before, you will likely reach the same conclusion.
+
+\
+
+### b. Mixing Genetics
+
+What happens if we have a `mixed population`? For now, we will use an example of a half Eskimo, half Bantu population. Even though we don't know the exact population size, we do know that if we randomly select someone from this combined population, the probability of them being Eskimo is exactly $50%$. Since the probability of selecting an Eskimo and the probability of selecting one of the four alleles in an Eskimo are independent (the distribution of alleles in the Eskimo population won't change based on whether you picked an Eskimo or not), the probability of getting that specific Eskimo allele is the `product` of the two probabilities. Thus, the relative frequency of each Eskimo allele is reduced by `half`. On the other hand, the probability of a randomly selected person being Bantu is also $50%$, so the relative frequency of each Bantu allele is also halved. However, both the Eskimo and the Bantu population share the same four alleles, so the halved relative frequencies can be added through `vector addition `to get the relative frequencies for the combined population.
+
+Referring back to our table, we can calculate the relative frequencies for the half Eskimo half Bantu population:
+
+$\vec{f'}=\frac{1}{2}\vec{f_1}+\frac{1}{2}\vec{f_2}=\frac{1}{2}\begin{pmatrix}0.29\\0.00\\0.03\\0.68\end{pmatrix}+\frac{1}{2}\begin{pmatrix}0.10\\0.09\\0.12\\0.69\end{pmatrix}=\begin{pmatrix}0.195\\0.045\\0.075\\0.685\end{pmatrix}$
+
+As per usual, we take the square root of each relative frequency to get our unit vector:
+
+$\vec{a'}=\begin{pmatrix}\sqrt{0.195}\\ \sqrt{0.045}\\ \sqrt{0.075}\\ \sqrt{0.685}\end{pmatrix}=\begin{pmatrix}0.442\\0.212\\0.274\\0.828\end{pmatrix}$
+
+```{r part 2b vectors}
+# Define the 4D vectors
+a1 <- c(0.539, 0.000, 0.173, 0.825)
+a2 <- c(0.316, 0.300, 0.346, 0.831)
+a3 <- c(0.458, 0.265, 0.245, 0.812)
+a4 <- c(0.468, 0.000, 0.458, 0.755)
+a5 <- c(0.442, 0.212, 0.274, 0.828)
+
+# Create a data frame with the vectors
+data <- data.frame(
+  x = c(a1[1], a2[1], a3[1], a4[1], a5[1]),
+  y = c(a1[2], a2[2], a3[2], a4[2], a5[2]),
+  z = c(a1[3], a2[3], a3[3], a4[3], a5[3]),
+  w = c(a1[4], a2[4], a3[4], a4[4], a5[4])
+)
+
+# Define a color ramp function
+color_ramp <- colorRamp(c("blue", "red"))
+
+# Map the fourth dimension to colors
+data$colors <- rgb(color_ramp( (data$w - min(data$w)) / (max(data$w) - min(data$w)) ), maxColorValue = 255)
+
+# Create the 3D plot
+p1 <- plot_ly() %>%
+  add_trace(
+    x = data$x[1], y = data$y[1], z = data$z[1],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>1</sub>',
+    hovertext = paste(" x: ", data$x[1], "<br>", "y: ", "0.000", "<br>", "z: ",
+                data$z[1], "<br>", "w: ", data$w[1]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[2], y = data$y[2], z = data$z[2],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>2</sub>',
+    hovertext = paste(" x: ", data$x[2], "<br>", "y: ", "0.300", "<br>", "z: ",
+                data$z[2], "<br>", "w: ", data$w[2]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[3], y = data$y[3], z = data$z[3],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>3</sub>',
+    hovertext = paste(" x: ", data$x[3], "<br>", "y: ", data$y[3], "<br>", "z: ",
+                data$z[3], "<br>", "w: ", data$w[3]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[4], y = data$y[4], z = data$z[4],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>4</sub>',
+    hovertext = paste(" x: ", data$x[4], "<br>", "y: ", "0.000", "<br>", "z: ",
+                data$z[4], "<br>", "w: ", data$w[4]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[5], y = data$y[5], z = data$z[5],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a\'',
+    hovertext = paste(" x: ", data$x[5], "<br>", "y: ", data$y[5], "<br>", "z: ",
+                data$z[5], "<br>", "w: ", data$w[5]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  # Add lines for each vector with a single color
+  add_trace(
+    x = c(0, data$x[1]), y = c(0, data$y[1]), z = c(0, data$z[1]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[1], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[2]), y = c(0, data$y[2]), z = c(0, data$z[2]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[2], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[3]), y = c(0, data$y[3]), z = c(0, data$z[3]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[3], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[4]), y = c(0, data$y[4]), z = c(0, data$z[4]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[4], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[5]), y = c(0, data$y[5]), z = c(0, data$z[5]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[5], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  layout(title = list(text = "Plot of a\'",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-0.5, 0.75)),
+                      yaxis = list(title = 'Y-axis', range = c(-0.5, 0.75)),
+                      zaxis = list(title = 'Z-axis', range = c(-0.5, 0.75)),
+                      aspectmode = "cube"),
+         margin = list(t = 100)
+  )
+
+# Create a data frame for the color bar
+color_bar_data <- data.frame(
+  x = 0,
+  y = seq(min(data$w), max(data$w), length.out = 100),
+  color = seq(min(data$w), max(data$w), length.out = 100)
+)
+
+# Create the skinny color bar plot with labels
+color_bar_plot <- ggplotly(ggplot(color_bar_data, aes(x = x, y = y, fill = color, text = paste0("w: ", round(color, 2)))) +
+  geom_tile(width = 5) +  # Adjust width to make the bar skinny
+  scale_fill_gradient(low = "blue", high = "red", name = "Color Bar") +
+  theme_void() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_blank(),  # Remove x-axis text
+    axis.text.y = element_text(size = 10),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 14, angle = 90, vjust = 0.5),
+    panel.grid = element_blank(),  # Turn off gridlines
+    panel.grid.major = element_blank(),  # Turn off major gridlines
+    panel.grid.minor = element_blank(),   # Turn off minor gridlines
+  )+
+  labs(y = "W-axis")+
+  coord_cartesian(clip = "off") +  # Ensure labels are not clipped
+  theme(
+    plot.margin = margin(t = 20, b = 0, l = 50, r = 0)  # Adjust plot margins
+  ), tooltip = "text") %>%
+  layout(
+    hoverlabel = element_blank(),
+    xaxis = list(title = ""),
+    yaxis = list(title = "W-axis"),
+    height = 200,
+    width = 150
+  )
+
+# Print the color bar plot
+manipulateWidget::combineWidgets(p1, color_bar_plot, nrow = 1)
+```
+
+Now that we have our unit vector that represents the mixed population, we can continue on our quest to find the population genetically closest to the English population. We can again use our strategy from **part a** and calculate the two `cosine similaarities`:
+
+$\qquad S_C(E_{nglish},B_{antu}) = \vec{a_3}\cdot\vec{a_2} = \begin{pmatrix}0.458\\0.265\\0.245\\0.812\end{pmatrix} \cdot \begin{pmatrix}0.316\\0.300\\0.346\\0.831\end{pmatrix} = 0.984$
+
+$\qquad S_C(E_{nglish},M_{ixed}) = \vec{a_3}\cdot\vec{a'} = \begin{pmatrix}0.458\\0.265\\0.245\\0.812\end{pmatrix} \cdot \begin{pmatrix}0.442\\0.212\\0.274\\0.828\end{pmatrix} = 0.998$
+
+That's a `cosine similarity` of almost $1$!! The mixed population has a nearly equivalent allele distribution as the English population, and it's clear that $S_C(E_{nglish},B_{antu})<S_C(E_{nglish},M_{ixed})$; this is also apparent from the 4D graph. Therefore, the English population is genetically more similar to the `half Eskimo half Bantu` population than the `Bantu` population alone.
+
+\
+
+### c. Genetic Optimization
+
+But why stop there? Is a half-half population really the closest population to the English population? What's the best mix of `Eskimo` & `Bantu` that is the closest population to English?
+
+Now this has become an `optimization problem`; we want the cosine similarity of the mixed population & the English population to be `as great as possible`. To do this, we need to find the extremas of the cosine similarity function - but we need the function first.
+
+If you're Mr. Haque, the word `mix` probably rung a bell for you. `Linear interpolation` (`Lerp` for short) is used a lot in animations, and it just so happens to perfectly describe our situation. The $L_{erp}$ function takes three inputs: a starting point, an ending point, and a number $t$ that ranges from $0$ to $1$. The number $t$ dictates how far along the output is from the starting point, and the starting & ending point can be any `tensor` as long as they are of the same dimensions. This function can be thought of as mixing the starting point & ending point with a ratio dictated by $(1-t):t$, which adds up to $100\%$. The $L_{erp}$ function itself is pretty simple:
+
+$\qquad Lerp(s_{tart},e_{nd},t)=(1-t)\cdot s_{tart}+t\cdot e_{nd}$
+
+\
+
+#### Examples of Lerping {.unlisted .unnumbered}
+
+<video src="/Users/aidengu/Desktop/Grade 12/Multivariable Calculus/Project 1 – Vectors – Chapter 11/Graphics/Part2c_Lerp.mp4" width="640" height="360" controls></video>
+
+\
+
+For our scenario, $s_{tart}$ would be the relative frequencies of the `Eskimo` alleles, $e_{nd}$ would be of the `Bantu` alleles, and $t$ would be the proportion of the mixed population that is Bantu. Plugging in these vectors in our $L_{erp}$ function, we get a vector-valued function:
+
+$\qquad \vec{f}(t)=L_{erp}(\vec{f_1},\vec{f_2},t)=(1-t)\cdot \begin{pmatrix}0.29\\0.00\\0.03\\0.68\end{pmatrix} +t\cdot \begin{pmatrix}0.10\\0.09\\0.12\\0.69\end{pmatrix}$
+
+Of course, before we take the square root of each frequency, let's simplify it first:
+
+$\qquad \vec{f}(t) = (1-t)\cdot \begin{pmatrix}0.29\\0.00\\0.03\\0.68\end{pmatrix} +t\cdot \begin{pmatrix}0.10\\0.09\\0.12\\0.69\end{pmatrix} = \begin{pmatrix}0.29\\0.00\\0.03\\0.68\end{pmatrix} + t\cdot \begin{pmatrix}-0.19\\0.09\\0.09\\0.01\end{pmatrix}$
+
+Now that we've simplified the relative frequency vector, we can take the square root of each term:
+
+$\qquad \vec{a}(t) = \begin{pmatrix}\sqrt{0.29-0.19t}\\ \sqrt{0.00+0.09t}\\ \sqrt{0.03+0.09t}\\ \sqrt{0.68+0.01t}\end{pmatrix}$
+
+Even though this is still a function of t, it is vector-valued, so we can still calculate its `cosine similarity`:
+
+$\qquad S_C(E_{nglish},M_{ixed}(t)) = \vec{a_3} \cdot \vec{a}(t) = \begin{pmatrix}0.458\\0.265\\0.245\\0.812\end{pmatrix} \cdot \begin{pmatrix}\sqrt{0.29-0.19t}\\ \sqrt{0.00+0.09t}\\ \sqrt{0.03+0.09t}\\ \sqrt{0.68+0.01t}\end{pmatrix} \\~\\ \qquad S_C(E_{nglish},M_{ixed}(t)) = 0.458\sqrt{0.29-0.19t}+0.265\sqrt{0.09t}+0.245\sqrt{0.03+0.09t}+0.812\sqrt{0.68+0.01t}$
+
+Note that we don't have to normalize any vectors, since the magnitude of $\vec{a}(t)$ will always be $1$; its components are still the square roots of relative frequencies.
+
+Now that we have the `cosine similarity` expressed as a function of $t$, we can graph it:
+
+```{r part 2c graph}
+# Define your custom function
+custom_function <- function(x) {
+  return(0.458*sqrt(0.29-0.19*x)+0.265*sqrt(0.09*x)+0.245*sqrt(0.03+0.09*x)+0.812*sqrt(0.68+0.01*x))
+}
+
+# Generate x values
+x_values <- seq(0, 1, length.out = 1000)
+
+# Compute corresponding y values using the custom function
+y_values <- custom_function(x_values)
+
+# Plot the custom function using plotly
+plot_ly(x = ~x_values, y = ~y_values, type = 'scatter', mode = 'lines') %>%
+  layout(title = 'Plot of Cosine Similarity v.s. t',
+         xaxis = list(title = 't'),
+         yaxis = list(title = 'S<sub>C</sub>(t)'),
+         margin = margin(t=100))
+```
+
+To find the `maximum` value of this graph, we can simply find the value of $t$ when the `derivative` of $S_C(t)$ equals 0. Through the chain rule & power rule, although tedious, we can find:
+
+$\frac{d}{dt}S_C(t)=-\frac{0.04351}{\sqrt{0.29-0.19t}}+\frac{0.03975}{\sqrt{t}}+\frac{0.011025}{\sqrt{0.03+0.09t}}+\frac{0.00406}{\sqrt{0.68+0.01t}}$
+
+```{r part 2c derivative}
+# Define your custom function
+custom_function <- function(x) {
+  return(-0.04351/sqrt(0.29-0.19*x)+0.03975/sqrt(x)+0.011025/sqrt(0.03+0.09*x)+0.00406/sqrt(0.68+0.01*x))
+}
+
+# Generate x values
+x_values <- seq(0, 1, length.out = 1000)
+
+# Compute corresponding y values using the custom function
+y_values <- custom_function(x_values)
+
+# Plot the custom function using plotly
+plot_ly(x = ~x_values, y = ~y_values, type = 'scatter', mode = 'lines') %>%
+  layout(title = 'Plot of Derivative of Cosine Similarity',
+         xaxis = list(title = 't'),
+         yaxis = list(title = 'S<sub>C</sub>\'(t)'),
+         margin = margin(t=100))
+```
+
+If we then solve for when $\frac{d}{dt}S_C(t)=0$, we get $t=0.522$. Thus, the population most genitically similar to the English population is a mix of $\mathbf{52.2\%}$ `Bantu` & $\mathbf{47.8\%}$ `Eskimo`.
+
+```{r part 2c vectors}
+# Define the 4D vectors
+a1 <- c(0.539, 0.000, 0.173, 0.825)
+a2 <- c(0.316, 0.300, 0.346, 0.831)
+a3 <- c(0.458, 0.265, 0.245, 0.812)
+a4 <- c(0.468, 0.000, 0.458, 0.755)
+a5 <- c(0.437, 0.217, 0.277, 0.828)
+
+# Create a data frame with the vectors
+data <- data.frame(
+  x = c(a1[1], a2[1], a3[1], a4[1], a5[1]),
+  y = c(a1[2], a2[2], a3[2], a4[2], a5[2]),
+  z = c(a1[3], a2[3], a3[3], a4[3], a5[3]),
+  w = c(a1[4], a2[4], a3[4], a4[4], a5[4])
+)
+
+# Define a color ramp function
+color_ramp <- colorRamp(c("blue", "red"))
+
+# Map the fourth dimension to colors
+data$colors <- rgb(color_ramp( (data$w - min(data$w)) / (max(data$w) - min(data$w)) ), maxColorValue = 255)
+
+# Create the 3D plot
+p1 <- plot_ly() %>%
+  add_trace(
+    x = data$x[1], y = data$y[1], z = data$z[1],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>1</sub>',
+    hovertext = paste(" x: ", data$x[1], "<br>", "y: ", "0.000", "<br>", "z: ",
+                data$z[1], "<br>", "w: ", data$w[1]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[2], y = data$y[2], z = data$z[2],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>2</sub>',
+    hovertext = paste(" x: ", data$x[2], "<br>", "y: ", "0.300", "<br>", "z: ",
+                data$z[2], "<br>", "w: ", data$w[2]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[3], y = data$y[3], z = data$z[3],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>3</sub>',
+    hovertext = paste(" x: ", data$x[3], "<br>", "y: ", data$y[3], "<br>", "z: ",
+                data$z[3], "<br>", "w: ", data$w[3]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[4], y = data$y[4], z = data$z[4],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a<sub>4</sub>',
+    hovertext = paste(" x: ", data$x[4], "<br>", "y: ", "0.000", "<br>", "z: ",
+                data$z[4], "<br>", "w: ", data$w[4]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  add_trace(
+    x = data$x[5], y = data$y[5], z = data$z[5],
+    type = 'scatter3d', mode = 'markers',
+    marker = list(size = 3),
+    name = 'a\'',
+    hovertext = paste(" x: ", data$x[5], "<br>", "y: ", data$y[5], "<br>", "z: ",
+                data$z[5], "<br>", "w: ", data$w[5]),  # Add w value to hovertext
+    hoverinfo = "name+text"
+  ) %>%
+  # Add lines for each vector with a single color
+  add_trace(
+    x = c(0, data$x[1]), y = c(0, data$y[1]), z = c(0, data$z[1]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[1], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[2]), y = c(0, data$y[2]), z = c(0, data$z[2]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[2], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[3]), y = c(0, data$y[3]), z = c(0, data$z[3]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[3], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[4]), y = c(0, data$y[4]), z = c(0, data$z[4]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[4], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  add_trace(
+    x = c(0, data$x[5]), y = c(0, data$y[5]), z = c(0, data$z[5]),
+    type = 'scatter3d', mode = 'lines',
+    line = list(color = data$colors[5], width = 4),
+    hoverinfo = "none",
+    showlegend = FALSE
+  ) %>%
+  layout(title = list(text = "The Solution (a\')",
+                      font = list(size = 20)),
+         scene = list(xaxis = list(title = 'X-axis', range = c(-0.5, 0.75)),
+                      yaxis = list(title = 'Y-axis', range = c(-0.5, 0.75)),
+                      zaxis = list(title = 'Z-axis', range = c(-0.5, 0.75)),
+                      aspectmode = "cube"),
+         margin = list(t = 100)
+  )
+
+# Create a data frame for the color bar
+color_bar_data <- data.frame(
+  x = 0,
+  y = seq(min(data$w), max(data$w), length.out = 100),
+  color = seq(min(data$w), max(data$w), length.out = 100)
+)
+
+# Create the skinny color bar plot with labels
+color_bar_plot <- ggplotly(ggplot(color_bar_data, aes(x = x, y = y, fill = color, text = paste0("w: ", round(color, 2)))) +
+  geom_tile(width = 5) +  # Adjust width to make the bar skinny
+  scale_fill_gradient(low = "blue", high = "red", name = "Color Bar") +
+  theme_void() +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_blank(),  # Remove x-axis text
+    axis.text.y = element_text(size = 10),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 14, angle = 90, vjust = 0.5),
+    panel.grid = element_blank(),  # Turn off gridlines
+    panel.grid.major = element_blank(),  # Turn off major gridlines
+    panel.grid.minor = element_blank(),   # Turn off minor gridlines
+  )+
+  labs(y = "W-axis")+
+  coord_cartesian(clip = "off") +  # Ensure labels are not clipped
+  theme(
+    plot.margin = margin(t = 20, b = 0, l = 50, r = 0)  # Adjust plot margins
+  ), tooltip = "text") %>%
+  layout(
+    hoverlabel = element_blank(),
+    xaxis = list(title = ""),
+    yaxis = list(title = "W-axis"),
+    height = 200,
+    width = 150
+  )
+
+# Print the color bar plot
+manipulateWidget::combineWidgets(p1, color_bar_plot, nrow = 1)
+```
+
+\
+
+# Summary
+
+In **part 1**, we learned how to find the distance between two `skew lines`. We found the equations for the two `parallel planes` that the lines lied on, and we calculated the distance between them. In **part c**, we developed a `general formula` for finding the distance between any two skew lines:
+
+$\qquad
+D = 
+\left|
+\frac
+{
+\begin{vmatrix}
+     x_1-x_2 & a_1 & a_2 \\ 
+     y_1-y_2 & b_1 & b_2 \\
+     z_1-z_2 & c_1 & c_2 
+\end{vmatrix}
+}{
+\sqrt{(b_1c_2-c_1b_2)^2+(c_1a_2-a_1c_2)^2+(a_1b_2-b_1a_2)^2}
+}
+\right|$
+
+In **part 2**, we applied the `dot product` in genetics, where we compared the allele frequencies amongst different populations. We used `cosine similarity` to determine the genetic correlation between two populations, and we extended it to a recombination of populations. In **part c**, we combined linear algebra with calculus to solve an `optimization problem`, where we determined that a population of $\mathbf{47.8\%}$ `Eskimo` & $\mathbf{52.2\%}$ `Bantu` is the most genetically similar population to the English population.
+
+\
+
+#### Medium
+
+* [Rmarkdown](https://rmarkdown.rstudio.com/): used to compile the document and graphs.
+* [Manim](https://www.manim.community/): used to create the animations.
+* [Plotly R](https://plotly.com/r/): used to make interactive 3D plots (widgets).
+* [ggplot2](https://ggplot2.tidyverse.org/): used to format the tables and charts.
